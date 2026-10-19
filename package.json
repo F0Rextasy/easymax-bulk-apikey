@@ -1,0 +1,33 @@
+{
+  "name": "easymax-bulk-apikey",
+  "version": "1.0.0",
+  "description": "Bulk-create EasyMax accounts with auto-generated API keys — OpenAI-compatible inference (DeepSeek V4.1, DeepSeek V4 Pro, GPT-6 family) + 9Router connector.",
+  "license": "MIT",
+  "type": "commonjs",
+  "bin": {
+    "easymax-bulk-apikey": "src/cli.js",
+    "easymax-bulk-apikey-launcher": "src/launcher.js"
+  },
+  "main": "src/cli.js",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node src/launcher.js",
+    "mint": "node src/cli.js",
+    "9router": "node src/connect-9router.js"
+  },
+  "keywords": [
+    "api-key",
+    "bulk",
+    "register",
+    "launcher",
+    "easymax",
+    "apikey"
+  ],
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ]
+}
