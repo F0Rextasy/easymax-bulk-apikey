@@ -4,7 +4,7 @@
 /**
  * Connect EasyMax to a 9Router instance.
  *
- * EasyMax serves an OpenAI-compatible endpoint (https://inference.easymax.global/v1), so a single
+ * EasyMax serves an OpenAI-compatible endpoint (https://easymax.ai/v1), so a single
  * provider-node carries every key: this registers one `openai-compatible` node
  * with prefix `easymax` and then one connection per API key, named
  * `easymax-001`, `easymax-002`, … Re-running it is idempotent (an existing node
@@ -13,7 +13,7 @@
  * Usage:
  *   node src/connect-9router.js \
  *     --base http://localhost:20128 --password 123456 \
- *     --api-key dahl_xxxx [--name "EasyMax"] [--prefix easymax]
+ *     --api-key <key> [--name "EasyMax"] [--prefix easymax]
  *
  *   node src/connect-9router.js                  # register every key in keys.txt
  *   node src/connect-9router.js --model <id>     # pin the connection's default model
@@ -24,7 +24,7 @@
  *   --api-key <key>    EasyMax API key     (default: every key in keys.txt)
  *   --name <name>      provider-node name       (default EasyMax)
  *   --prefix <slug>    provider prefix in 9Router (default easymax)
- *   --base-url <url>   provider base URL        (default https://inference.easymax.global/v1)
+ *   --base-url <url>   provider base URL        (default https://easymax.ai/v1)
  *   --model <id>       connection default model (default MiniMaxAI/MiniMax-M2.7)
  *
  * Zero dependencies. Node.js >= 18.
