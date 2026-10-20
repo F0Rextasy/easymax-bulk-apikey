@@ -27,7 +27,7 @@
  *   --model <id>     model used for the live gate       [deepseek-v4.1-flash]
  *   --group <name>   token group the key is created in            [deepseek]
  *   --aff <code>     invite code used at sign-up (this is the quota source)
- *   --pool <file>    proxy list, one exit per line   (env EASYMAX_PROXIES)
+ *   --pool <file>    proxy list, one exit per line (env EASYMAX_PROXIES) [optional]
  *   --broker <urls>  inbox broker base URL(s), comma separated
  *                                 [http://127.0.0.1:9700,http://127.0.0.1:9701]
  *   --inbox <chain>  mailbox rail order                       [broker,emailnator,local]
@@ -38,7 +38,9 @@
  *   --screen         only test the proxy list against EasyMax
  *   --help
  *
- * Zero dependencies. Node.js >= 18.
+ * Zero dependencies. Node.js >= 18. Your proxy list is OPTIONAL: pass --pool
+ * (or the EASYMAX_PROXIES env) and every request goes through an exit from it;
+ * without a pool the tool connects directly.
  */
 
 const fs = require('fs');
@@ -85,12 +87,12 @@ if (has('help') || has('h')) {
   --model <id>   model used for the live gate        [deepseek-v4.1-flash]
   --group <name> token group the key is created in               [deepseek]
   --aff <code>   invite code used at sign-up (grants the 250k quota)
-  --pool <file>  proxy list, one exit per line     (env EASYMAX_PROXIES)
+  --pool <file>  proxy list, one exit per line (env EASYMAX_PROXIES) [optional]
   --broker <u>   inbox broker base URL(s), comma separated
   --inbox <c>    mailbox rail order                  [broker,emailnator,local]
 
-Every request leaves through an exit from your pool; the tool never dials EasyMax
-directly.`);
+Requests go through your proxy list when one is provided (--pool / env).
+Without a pool the tool connects directly.`);
   process.exit(0);
 }
 
@@ -135,8 +137,10 @@ function say(msg) {
 function loadExits() {
   const file = path.resolve(ROOT, PROXY_FILE);
   if (!fs.existsSync(file)) {
-    console.error(`! proxy list not found: ${PROXY_FILE} (one exit per line: http://host:port)`);
-    process.exit(2);
+    // No pool = DIRECT mode: a proxy is recommended at scale (per-IP limits,
+    // bans) but the tool works without one. `null` is the direct sentinel.
+    say(`no proxy list at ${PROXY_FILE} — running WITHOUT a proxy (direct). Put exits there (or pass --pool) to route through them.`);
+    return [null];
   }
   const exits = fs
     .readFileSync(file, 'utf8')
@@ -144,8 +148,8 @@ function loadExits() {
     .map((s) => s.trim())
     .filter((s) => s && !s.startsWith('#') && !s.startsWith('//'));
   if (!exits.length) {
-    console.error(`! proxy list ${PROXY_FILE} is empty`);
-    process.exit(2);
+    say(`proxy list ${PROXY_FILE} has no usable exits — running WITHOUT a proxy (direct).`);
+    return [null];
   }
   return exits;
 }
@@ -317,15 +321,24 @@ async function openTunnel(exit, host, port, timeoutMs) {
   return httpTunnel(exit, host, port, timeoutMs);
 }
 
+/** A raw socket straight to host:port (no proxy) — the direct-mode twin of openTunnel. */
+function directTunnel(host, port, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const sock = net.connect({ host, port });
+    sock.setTimeout(timeoutMs, () => sock.destroy(new Error('connect timeout')));
+    sock.once('connect', () => resolve(sock));
+    sock.once('error', reject);
+  });
+}
+
 /**
- * One HTTPS request through `exit`. No exit means no request: the rail never
- * dials the panel from your own line (spec: PROXY ZORUNLU).
+ * One HTTPS request through `exit`, or straight out when no exit is configured
+ * (the proxy list is optional; a pool is recommended at scale).
  */
 function exitRequest(exitLine, url, { method = 'GET', headers = {}, body = null, timeoutMs = TIMEOUT_MS } = {}) {
   return new Promise((resolve, reject) => {
-    const exit = parseExit(exitLine);
-    if (!exitLine) return reject(new Error('refusing a direct request: this attempt has no exit'));
-    if (!exit) return reject(new Error(`unparseable exit ${maskExit(exitLine)}`));
+    const exit = exitLine ? parseExit(exitLine) : null;
+    if (exitLine && !exit) return reject(new Error(`unparseable exit ${maskExit(exitLine)}`));
     const u = new URL(url);
     const payload =
       body === null || body === undefined
@@ -358,7 +371,7 @@ function exitRequest(exitLine, url, { method = 'GET', headers = {}, body = null,
       reject(e);
     };
     let tlsSock = null;
-    openTunnel(exit, u.hostname, Number(u.port || 443), Math.min(timeoutMs, 20000))
+    (exit ? openTunnel(exit, u.hostname, Number(u.port || 443), Math.min(timeoutMs, 20000)) : directTunnel(u.hostname, Number(u.port || 443), Math.min(timeoutMs, 20000)))
       .then((tunnel) => {
         const leftover = tunnel.__leftover;
         tunnel.__leftover = Buffer.alloc(0);
@@ -714,7 +727,7 @@ async function mintOne(exits, startExit, index) {
 }
 
 async function screen(exits) {
-  say(`screening ${exits.length} exit(s) against ${new URL(BASE).host}`);
+  say(`screening ${exits.filter(Boolean).length || 'direct'} exit(s) against ${new URL(BASE).host}`);
   const live = [];
   let cursor = 0;
   const workers = Array.from({ length: CONC }, async () => {
@@ -725,7 +738,7 @@ async function screen(exits) {
       try {
         const r = await exitRequest(exitLine, `${BASE}/api/status`, { timeoutMs: 25000 });
         if (r.status === 200) {
-          live.push(exitLine);
+          if (exitLine) live.push(exitLine);
           say(`  ✓ ${maskExit(exitLine)} ${r.status}`);
         } else {
           say(`  ✗ ${maskExit(exitLine)} ${r.status}`);
@@ -777,7 +790,7 @@ async function verifyOnly(exits) {
 async function mint(exits) {
   say(
     `minting ${COUNT} account(s), conc ${CONC}, model ${MODEL}, group ${GROUP}, ` +
-      `${exits.length} exit(s), inbox ${INBOX.join('→')}`
+      `${exits.filter(Boolean).length ? `${exits.filter(Boolean).length} exit(s)` : 'direct (no proxy)'}, inbox ${INBOX.join('→')}`
   );
   let cursor = 0;
   let ok = 0;

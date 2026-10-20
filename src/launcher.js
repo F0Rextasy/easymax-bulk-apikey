@@ -6,8 +6,8 @@
  *
  * The CLI's options stay configurable without reading its source: this launcher
  * asks for them, remembers the answers in `launcher.config.json`, and then runs
- * the CLI with the right flags — including the proxy list, which is the setting
- * people most often need and cannot guess.
+ * the CLI with the right flags — including the proxy list (optional: without a
+ * list of exits the CLI connects directly).
  *
  * Usage: node src/launcher.js            (menu)
  *        node src/launcher.js --help
@@ -104,9 +104,8 @@ async function mintFlow(cfg) {
   saveConfig(cfg);
 
   if (!fs.existsSync(path.resolve(ROOT, cfg.proxyFile)) && !fs.existsSync(cfg.proxyFile)) {
-    console.log(`  ! ${cfg.proxyFile} not found — put one proxy per line there first`);
-    console.log('    (http://host:port, socks5://host:port or host:port)');
-    return;
+    console.log(`  ! ${cfg.proxyFile} not found — running WITHOUT a proxy (direct)`);
+    console.log('    (put one exit per line there to route through proxies: http://host:port, socks5://host:port or host:port)');
   }
   run(['--count', String(cfg.count), '--model', cfg.model], { EASYMAX_PROXIES: cfg.proxyFile });
 }

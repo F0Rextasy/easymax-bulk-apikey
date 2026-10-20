@@ -91,8 +91,8 @@ The `deepseek-v4-pro` id is a reasoning model: it answers with `reasoning_conten
 # clone or fork this repository, then:
 cd easymax-bulk-apikey
 
-# 1) your proxy list, one per line (http://…, socks5://… or socks4a://…)
-printf 'http://127.0.0.1:8080\n' > proxies.txt
+# 1) your proxy list, one per line (http://…, socks5://… or socks4a://…) — optional
+printf 'http://127.0.0.1:8080\n' > proxies.txt   # optional — without it the tool runs direct
 
 # 2) go
 node src/launcher.js        # interactive
@@ -104,7 +104,7 @@ A key is appended to `keys.txt` **only** after a live chat completion proves it;
 
 ### 🖱️ The launcher
 
-The launcher asks for the proxy list, count and verification model, remembers them in `launcher.config.json`, and runs the CLI with the right flags.
+The launcher asks for the proxy list (optional — without one the CLI runs direct), count and verification model, remembers them in `launcher.config.json`, and runs the CLI with the right flags.
 
 ## ✅ Verified working — every key is tested
 
@@ -155,7 +155,7 @@ node src/cli.js --screen          # test the proxy list against EasyMax
 | `--model` | `deepseek-v4.1-flash` | model the live gate uses |
 | `--group` | `deepseek` | token group the key is created in (`default` serves the gpt family) |
 | `--aff` | fleet invite code | invite code sent at sign-up — this is the quota source |
-| `--pool <file>` | `proxies.txt` | exit list (env `EASYMAX_PROXIES`) |
+| `--pool <file>` | `proxies.txt` | exit list (env `EASYMAX_PROXIES`) — optional: without a pool the CLI connects directly |
 | `--broker <urls>` | `http://127.0.0.1:9700,http://127.0.0.1:9701` | inbox broker base URL(s) |
 | `--inbox <chain>` | `broker,emailnator,local` | mailbox rail order |
 | `--tries` | 2 | exits tried per account before it is given up |
@@ -164,7 +164,13 @@ node src/cli.js --screen          # test the proxy list against EasyMax
 
 ## 🛰️ Behind a proxy
 
-Every EasyMax request leaves through **one pinned exit per account** — the register, login, token and gate calls of an account all ride the same line, and a dead exit hands the account to the next one in the pool (`--tries`). The tunnel is built in: **`http`/`https` CONNECT (with `user:pass@` proxy auth), `socks5` (including user/pass) and `socks4a`**. There is no direct fallback — with an empty pool the rail exits instead of dialing the panel from your own line. Inbox-broker calls are the one exception: they go to `localhost`, where your own broker does its own egress.
+Every EasyMax request goes through the exit list when one is provided — **one pinned exit per account**: the register, login, token and gate calls of an account all ride the same line, and a dead exit hands the account to the next one in the pool (`--tries`). The tunnel is built in: **`http`/`https` CONNECT (with `user:pass@` proxy auth), `socks5` (including user/pass) and `socks4a`**.
+
+**Optional — recommended at scale (per-IP limits, bans).** The tool works without a proxy too.
+
+- **With a pool:** pass `--pool <file>` (or set `EASYMAX_PROXIES`) — one pinned exit per account, as above.
+- **Without a pool:** the CLI prints `running WITHOUT a proxy (direct)` and connects directly; sign-up, key minting and the chat gate are unchanged — only the packets leave from your own line.
+- Inbox-broker calls go to `localhost` in either mode, where your own broker does its own egress.
 
 ## 📄 Files
 
