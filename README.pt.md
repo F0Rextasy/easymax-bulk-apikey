@@ -88,6 +88,7 @@ O id `deepseek-v4-pro` é um modelo de raciocínio: ele responde com `reasoning_
 ## 🛠 Início rápido
 
 ```bash
+
 # clone or fork this repository, then:
 cd easymax-bulk-apikey
 
@@ -96,6 +97,7 @@ printf 'http://127.0.0.1:8080\n' > proxies.txt
 
 # 2) go
 node src/launcher.js        # interactive
+
 # or directly:
 node src/cli.js --count 50
 ```
@@ -182,6 +184,7 @@ Cada requisição ao EasyMax sai através de **uma saída fixada por conta** —
 
 ```bash
 node src/connect-9router.js
+
 # or: npm run 9router
 ```
 

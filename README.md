@@ -117,7 +117,7 @@ The launcher asks for the proxy list (optional — without one the CLI runs dire
 | chat gate — run for **every** key before it is written | **200** with real content |
 | a key that fails its chat check | never written to `keys.txt` (the account stays reusable in `accounts.json`) |
 
-Minted with this tool during the build: **8 accounts / 8 keys, all `quota 250000`, all chat-200** on `deepseek-v4.1-flash`, across two tunnel types (CONNECT + SOCKS5) and 4 exits.
+Minted with this tool during the build: **keys verified** on `deepseek-v4.1-flash`, across two tunnel types (CONNECT + SOCKS5) and 4 exits.
 
 ## 🧭 How it works
 

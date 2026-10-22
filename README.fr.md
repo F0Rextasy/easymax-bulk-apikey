@@ -88,6 +88,7 @@ L'identifiant `deepseek-v4-pro` est un modèle de raisonnement : il répond d'ab
 ## 🛠 Démarrage rapide
 
 ```bash
+
 # clone or fork this repository, then:
 cd easymax-bulk-apikey
 
@@ -96,6 +97,7 @@ printf 'http://127.0.0.1:8080\n' > proxies.txt
 
 # 2) go
 node src/launcher.js        # interactive
+
 # or directly:
 node src/cli.js --count 50
 ```
@@ -182,6 +184,7 @@ Chaque requête EasyMax sort par **une sortie épinglée par compte** — les ap
 
 ```bash
 node src/connect-9router.js
+
 # or: npm run 9router
 ```
 
