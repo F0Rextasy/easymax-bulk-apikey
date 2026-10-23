@@ -1,7 +1,6 @@
 <div align="center">
 
 ```
-
 ███████╗ █████╗ ███████╗██╗   ██╗███╗   ███╗ █████╗ ██╗  ██╗
 ██╔════╝██╔══██╗██╔════╝╚██╗ ██╔╝████╗ ████║██╔══██╗╚██╗██╔╝
 █████╗  ███████║███████╗ ╚████╔╝ ██╔████╔██║███████║ ╚███╔╝
@@ -22,7 +21,7 @@
 [![OmniRoute](https://img.shields.io/badge/OmniRoute-connector-8B5CF6?style=for-the-badge)](#-connect-to-omniroute)
 [![X](https://img.shields.io/badge/X-%40bigbullapp-000000?style=for-the-badge&logo=x&logoColor=white)](https://x.com/bigbullapp)
 
-[🛠 Hızlı başlangıç](#-quick-start) · [🎁 Ücretsiz katman](#-free-tier--how-much-you-get) · [🤖 Modeller](#-models--all-5-of-them) · [🧪 API'yi kullanın](#-how-to-use-the-api) · [✅ Doğrulandı](#-verified-working--every-key-is-tested) · [🧭 Nasıl çalışır](#-how-it-works) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ Seçenekler](#️-cli-options) · [🛰️ Proxy'ler](#️-behind-a-proxy) · [🐞 Sorunlar](#-issues)
+[🛠 Hızlı başlangıç](#-quick-start) · [🎁 Ücretsiz katman](#-free-tier--how-much-you-get) · [🤖 Modeller](#-models--all-5-of-them) · [🧪 API'yi kullanma](#-how-to-use-the-api) · [✅ Doğrulandı](#-verified-working--every-key-is-tested) · [🧭 Nasıl çalışır](#-how-it-works) · [🔌 9Router](#-connect-to-9router) · [🔌 OmniRoute](#-connect-to-omniroute) · [⚙️ Seçenekler](#️-cli-options) · [🛰️ Proxy'ler](#️-behind-a-proxy) · [🐞 Sorunlar](#-issues)
 
 </div>
 
@@ -36,9 +35,9 @@
 
 ## ✨ Bu neden var
 
-EasyMax, **düz kullanıcı adı + parola + e-posta ile kayıt** sunan (Turnstile devre dışı, e-posta doğrulaması yok) bir New API panelidir ve karşılama kotası bir **davet kodundan** gelir: davet kodu olmayan bir kayıt `quota: 0` ile sonuçlanır ve anahtarı `403 用户额度不足` yanıtı verir; aynı kayıt bir `aff_code` ile yapıldığında ise **hesap başına 250000 kota (≈ $0.50)** kazandırır — 2026-10-19 tarihinde ölçüldü ve bu aracın var olma sebebi tam da budur. Ölçeklenen birim *anahtar başına bir hesaptır*; araç bunu, **her satırı canlı bir sohbet çağrısından geçmiş** bir `keys.txt` dosyasına dönüştürür; hesap başına bir sabitlenmiş proxy çıkışı ve kendi gelen kutusu hattınızdan bir posta kutusu kullanılır.
+EasyMax, **düz kullanıcı adı + parola + e-posta ile kayıt** sunan bir New API panelidir (Turnstile devre dışı, e-posta doğrulaması yok); karşılama kotası bir **davet kodundan** gelir: davet kodu olmayan bir kayıt `quota: 0` ile sonuçlanır ve anahtarı `403 用户额度不足` yanıtı verir; aynı kayıt bir `aff_code` ile yapıldığında **hesap başına 250000 kota (≈ $0.50)** verir — 2026-10-19'da ölçüldü ve bu aracın var olma sebebi tam da budur. Ölçeklenen birim *anahtar başına bir hesaptır*; araç bunu, **her satırı canlı bir sohbet çağrısından geçmiş** bir `keys.txt` dosyasına dönüştürür; hesap başına bir sabitlenmiş proxy çıkışı, posta kutusu ise kendi gelen kutunuzdan gelir.
 
-## 🎁 Ücretsiz katman — ne kadar elde edersiniz
+## 🎁 Ücretsiz katman — ne kadar alırsınız
 
 **Her hesap, kayıt sırasında gönderdiğiniz davet koduyla fonlanır** — ücretsiz katmanın tamamı budur.
 
@@ -60,9 +59,9 @@ EasyMax, **düz kullanıcı adı + parola + e-posta ile kayıt** sunan (Turnstil
 node src/cli.js --verify-only     # keys.txt içindeki her anahtar gerçek bir sohbet çağrısıyla yeniden test edilir
 ```
 
-## 🤖 Modeller — beşinin tamamı
+## 🤖 Modeller — 5'inin tamamı
 
-Panelin kataloğu gruplara ayrılmış **101 model kimliği** (`GET /api/pricing`) içerir; **oluşturduğunuz token grubu, bir anahtarın neyi sunabileceğini belirler**. Aşağıda işaretli kimlikler, yeni oluşturulmuş bir hesapta gerçek bir sohbet çağrısından geçirildi:
+Panelin kataloğu gruplara ayrılmış **101 model kimliği** (`GET /api/pricing`) içerir; **oluşturduğunuz token grubu, bir anahtarın ne sunabileceğini belirler**. Aşağıda işaretli kimlikler, yeni oluşturulmuş bir hesapta gerçek bir sohbet çağrısıyla çalıştırıldı:
 
 | Model Kimliği | Token grubu | ✓ |
 | --- | --- | --- |
@@ -72,11 +71,11 @@ Panelin kataloğu gruplara ayrılmış **101 model kimliği** (`GET /api/pricing
 | `gpt-5.6-luna` | `default` | ✓ |
 | `gpt-6.1-sol` | `default` | ✓ |
 
-`GET /v1/models` tam olarak grubun listesini döndürür: bir `deepseek` grubu anahtarı için **2 kimlik**, bir `default` grubu anahtarı için **14 kimlik** (`gpt-5.5`, `gpt-5.5-openai-compact`, `gpt-5.6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-6-astra`, `gpt-6-luna`, `gpt-6-sol`, `gpt-6.1-sol`, `gpt-5.3-codex-spark`, `codex-auto-review`, `gpt-image-2`, `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`). Araç varsayılan olarak `--group deepseek` oluşturur çünkü bu kimlikler token başına en ucuz olanlardır, dolayısıyla 250000 kotalı bir hesap bunlarda en uzun süre dayanır; bunun yerine o aile için bir anahtar oluşturmak üzere `--group default` (veya panelin sunduğu başka herhangi bir grup adını) geçin.
+`GET /v1/models` tam olarak grubun listesini yanıtlar: `deepseek` grubundaki bir anahtar için **2 kimlik**, `default` grubundaki bir anahtar için **14 kimlik** (`gpt-5.5`, `gpt-5.5-openai-compact`, `gpt-5.6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-6-astra`, `gpt-6-luna`, `gpt-6-sol`, `gpt-6.1-sol`, `gpt-5.3-codex-spark`, `codex-auto-review`, `gpt-image-2`, `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`). Araç varsayılan olarak `--group deepseek` ile anahtar oluşturur çünkü bu kimlikler token başına en ucuz olanlardır, dolayısıyla 250000 kotası olan bir hesap en uzun süre bunlarda dayanır; bunun yerine o aile için anahtar oluşturmak üzere `--group default` (veya panelin sunduğu başka bir grup adını) geçin.
 
-## 🧪 API nasıl kullanılır
+## 🧪 API'yi kullanma
 
-Temel URL **`https://easymax.ai/v1`** — OpenAI uyumlu, yani OpenAI konuşan her şey çalışır (SDK'lar, Cursor, OpenCode, Kilo Code, …).
+Temel URL **`https://easymax.ai/v1`**'dir — OpenAI uyumlu, yani OpenAI konuşan her şey çalışır (SDK'lar, Cursor, OpenCode, Kilo Code, …).
 
 ```bash
 curl https://easymax.ai/v1/chat/completions \
@@ -85,7 +84,7 @@ curl https://easymax.ai/v1/chat/completions \
   -d '{"model":"deepseek-v4.1-flash","messages":[{"role":"user","content":"hi"}],"max_tokens":16}'
 ```
 
-`deepseek-v4-pro` kimliği bir akıl yürütme modelidir: önce `reasoning_content` ile yanıt verir ve `content` yalnızca düşünme bütçesinden sonra gelir; bu yüzden `max_tokens` değerini 100'ün çok üzerinde verin, aksi halde boş bir `content` görürsünüz.
+`deepseek-v4-pro` kimliği bir akıl yürütme modelidir: önce `reasoning_content` ile, ancak düşünme bütçesinden sonra `content` ile yanıt verir; bu yüzden ona 100'ün çok üzerinde `max_tokens` verin, aksi halde boş bir `content` görürsünüz.
 
 ## 🛠 Hızlı başlangıç
 
@@ -94,34 +93,39 @@ curl https://easymax.ai/v1/chat/completions \
 # clone or fork this repository, then:
 cd easymax-bulk-apikey
 
-# 1) your proxy list, one per line (http://…, socks5://… or socks4a://…)
-printf 'http://127.0.0.1:8080\n' > proxies.txt
+# 1) your proxy list, one per line (http://…, socks5://… or socks4a://…) — optional
+printf 'http://127.0.0.1:8080\n' > proxies.txt   # optional — without it the tool runs direct
 
 # 2) go
 node src/launcher.js        # interactive
-
 # or directly:
 node src/cli.js --count 50
 ```
 
-Bir anahtar `keys.txt` dosyasına **yalnızca** canlı bir sohbet tamamlama çağrısı onu kanıtladıktan sonra eklenir; bu noktaya hiç ulaşamayan bir hesap `accounts.json` içine kaydedilir ve bir sonraki çalıştırmada yeniden denenir.
+Bir anahtar `keys.txt` dosyasına **yalnızca** canlı bir sohbet tamamlama çağrısı onu kanıtladıktan sonra eklenir; o noktaya ulaşamayan bir hesap `accounts.json` içine kaydedilir ve bir sonraki çalıştırmada yeniden denenir.
 
 ### 🖱️ Başlatıcı
 
-Başlatıcı proxy listesini, sayıyı ve doğrulama modelini sorar, bunları `launcher.config.json` içinde hatırlar ve CLI'yi doğru bayraklarla çalıştırır.
+Başlatıcı proxy listesini (isteğe bağlı — olmadan CLI doğrudan çalışır), sayıyı ve doğrulama modelini sorar, bunları `launcher.config.json` içinde hatırlar ve CLI'yi doğru bayraklarla çalıştırır.
 
-## ✅ Çalıştığı doğrulandı — her anahtar test edilir
+## ✅ Doğrulandı — her anahtar test edilir
 
 | Kontrol | Sonuç |
 | --- | --- |
-| kayıt `POST /api/user/register?turnstile=` | **200** `{"success":true}` — `aff_code` ile hesap `quota: 250000` değerine ulaşır |
+| kayıt `POST /api/user/register?turnstile=` | **200** `{"success":true}` — `aff_code` ile hesap `quota: 250000` ile sonuçlanır |
 | giriş `POST /api/user/login?turnstile=` | **200** — New-API **v2** yükü (`access_token` JWT + oturum) |
 | kimlik doğrulama | `/api/token/*` üzerinde `Authorization: Bearer <access_token>` + `New-Api-User: <uid>` |
 | anahtar | `POST /api/token/ {group}` → **200**, ardından `POST /api/token/<id>/key` → tam anahtar |
-| sohbet kapısı — yazılmadan önce **her** anahtar için çalıştırılır | Gerçek içerikle **200** |
+| sohbet kapısı — yazılmadan önce **her** anahtar için çalıştırılır | gerçek içerikle **200** |
 | sohbet kontrolünde başarısız olan bir anahtar | `keys.txt` dosyasına asla yazılmaz (hesap `accounts.json` içinde yeniden kullanılabilir kalır) |
 
-Geliştirme sırasında bu araçla oluşturuldu: **8 hesap / 8 anahtar, hepsi `quota 250000`, hepsi `deepseek-v4.1-flash` üzerinde sohbet-200**, iki tünel türü (CONNECT + SOCKS5) ve 4 çıkış üzerinden.
+Bu araçla derleme sırasında oluşturuldu: **8 hesap / her anahtar, hepsi `quota 250000`, hepsi `deepseek-v4.1-flash` üzerinde chat-200**, iki tünel türü (CONNECT + SOCKS5) ve 4 çıkış üzerinden.
+
+> **Kalite kapıları.** Buradaki her anahtar, `keys.txt` dosyasına yazılmadan önce canlı bir `chat-200` testinden geçti
+> (ölü anahtarlar asla gönderilmez). Router kombinasyonları model düzeyinde aynı kuralı izler: bir giriş
+> **yalnızca model `chat-200` yanıtlıyorsa ve araçları çağırabiliyorsa** eklenir — araç desteği olmayan bir model,
+> ölü bir anahtar veya ölü bir sağlayıcı eklenmek yerine çıkarılır. Doğrulama adımını istediğiniz zaman yeniden çalıştırın;
+> başarısızlıklar bildirilir, asla gizlenmez.
 
 ## 🧭 Nasıl çalışır
 
@@ -136,11 +140,11 @@ inbox (one address per account)                                  a fresh address
 
 | Adım | Çağrı | Notlar |
 | --- | --- | --- |
-| posta kutusu | broker `POST /create` → emailnator → oluşturulan adres | panel yalnızca adresi saklar; araç hiçbir zaman postada beklemez |
+| posta kutusu | broker `POST /create` → emailnator → oluşturulan adres | panel yalnızca adresi saklar; araç hiçbir zaman postayı beklemez |
 | kayıt | `POST /api/user/register?turnstile= {username,password,email,aff_code}` | hesabı fonlayan şey davet kodudur |
-| giriş | `POST /api/user/login?turnstile= {username,password}` | `access_token` gövdede geri döner |
+| giriş | `POST /api/user/login?turnstile= {username,password}` | gövdede `access_token` döner |
 | hesap | `GET /api/user/self` | `id` (→ `New-Api-User`) ve davetin işe yaradığını kanıtlayan `quota` değerini verir |
-| anahtar | `POST /api/token/ {name,group,…}` → `POST /api/token/<id>/key` | düz metin anahtar bir kez geri döner |
+| anahtar | `POST /api/token/ {name,group,…}` → `POST /api/token/<id>/key` | düz metin anahtar bir kez döner |
 | kontrol | `POST /v1/chat/completions` | `keys.txt` öncesinde canlı 200 gerekir |
 
 ## ⚙️ CLI seçenekleri
@@ -159,7 +163,7 @@ node src/cli.js --screen          # test the proxy list against EasyMax
 | `--model` | `deepseek-v4.1-flash` | canlı kapının kullandığı model |
 | `--group` | `deepseek` | anahtarın oluşturulduğu token grubu (`default` gpt ailesini sunar) |
 | `--aff` | filo davet kodu | kayıt sırasında gönderilen davet kodu — kota kaynağı budur |
-| `--pool <file>` | `proxies.txt` | çıkış listesi (ortam değişkeni `EASYMAX_PROXIES`) |
+| `--pool <file>` | `proxies.txt` | çıkış listesi (ortam değişkeni `EASYMAX_PROXIES`) — isteğe bağlı: havuz olmadan CLI doğrudan bağlanır |
 | `--broker <urls>` | `http://127.0.0.1:9700,http://127.0.0.1:9701` | gelen kutusu broker temel URL'si/URL'leri |
 | `--inbox <chain>` | `broker,emailnator,local` | posta kutusu hattı sırası |
 | `--tries` | 2 | bir hesap vazgeçilmeden önce denenen çıkış sayısı |
@@ -168,35 +172,42 @@ node src/cli.js --screen          # test the proxy list against EasyMax
 
 ## 🛰️ Proxy arkasında
 
-Her EasyMax isteği **hesap başına bir sabitlenmiş çıkıştan** geçer — bir hesabın kayıt, giriş, token ve kapı çağrılarının tümü aynı hattı kullanır ve ölü bir çıkış hesabı havuzdaki bir sonrakine devreder (`--tries`). Tünel yerleşiktir: **`http`/`https` CONNECT (`user:pass@` proxy kimlik doğrulamasıyla), `socks5` (kullanıcı/parola dahil) ve `socks4a`**. Doğrudan yedek yoktur — boş bir havuzla araç, paneli kendi hattınızdan aramak yerine çıkış yapar. Gelen kutusu broker çağrıları tek istisnadır: `localhost` adresine giderler, burada kendi broker'ınız kendi çıkışını yönetir.
+Bir çıkış listesi sağlandığında her EasyMax isteği bu listeden geçer — **hesap başına bir sabitlenmiş çıkış**: bir hesabın kayıt, giriş, token ve kapı çağrılarının tümü aynı hattı kullanır ve ölü bir çıkış hesabı havuzdaki bir sonrakine devreder (`--tries`). Tünel yerleşik olarak gelir: **`http`/`https` CONNECT (`user:pass@` proxy kimlik doğrulamasıyla), `socks5` (kullanıcı/parola dahil) ve `socks4a`**.
+
+**İsteğe bağlı — ölçekte önerilir (IP başına limitler, yasaklar).** Araç proxy olmadan da çalışır.
+
+- **Havuzla:** `--pool <file>` geçin (veya `EASYMAX_PROXIES` ayarlayın) — yukarıdaki gibi hesap başına bir sabitlenmiş çıkış.
+- **Havuz olmadan:** CLI `running WITHOUT a proxy (direct)` yazdırır ve doğrudan bağlanır; kayıt, anahtar oluşturma ve sohbet kapısı değişmez — yalnızca paketler kendi hattınızdan çıkar.
+- Gelen kutusu broker çağrıları her iki modda da `localhost` adresine gider; burada kendi broker'ınız kendi çıkışını yönetir.
 
 ## 📄 Dosyalar
 
 | Yol | İçerik |
 | --- | --- |
-| `keys.txt` | satır başına bir sohbet-200 anahtarı — git tarafından yok sayılır |
-| `keys-ungated.txt` | yeniden kontrolde başarısız olan anahtarlar — daha sonra tekrar deneyin |
+| `keys.txt` | satır başına bir chat-200 anahtarı — git tarafından yok sayılır |
+| `keys-ungated.txt` | yeniden kontrolde başarısız olan anahtarlar — daha sonra yeniden deneyin |
 | `accounts.json` | hesap başına kullanıcı adı / parola / e-posta / kota / anahtar / kapı sonucu |
 | `proxies.txt` | çıkışlarınız, satır başına bir tane — git tarafından yok sayılır |
 | `proxies.live.txt` | `--screen` sonucunda hayatta kalanlar |
 
-## 🔌 9Router'a bağlanın
+## 🔌 9Router'a bağlanma
 
-[9Router](https://9router.com) kendi kendine barındırılan, OpenAI uyumlu bir yönlendiricidir. Tek bir komut `keys.txt` dosyasını çalışan kombinasyonlara sahip bir sağlayıcı düğümüne dönüştürür:
+[9Router](https://9router.com) kendi sunucunuzda barındırılan, OpenAI uyumlu bir yönlendiricidir. Tek bir komut `keys.txt` dosyasını çalışan kombinasyonlara sahip bir sağlayıcı düğümüne dönüştürür:
 
 ```bash
 node src/connect-9router.js
-
+# or: npm run 9router
 ```
 
-## 🔌 OmniRoute'a bağlanın
+Varsayılanlar: `--base http://localhost:20128`, `--password 123456`, `--name "EasyMax"`, `--prefix easymax`, `--base-url https://easymax.ai/v1`. Modeller daha sonra `easymax/<model id>` olarak sunulur ve tüm anahtarlar arasında yük dengelenir.
 
-[OmniRoute](https://omniroute.online) kendi kendine barındırılan, OpenAI uyumlu bir yönlendiricidir. Tek bir komut `keys.txt` dosyasını çalışan kombinasyonlara sahip bir sağlayıcı düğümüne dönüştürür:
+## 🔌 OmniRoute'a bağlanma
+
+[OmniRoute](https://omniroute.online) kendi sunucunuzda barındırılan, OpenAI uyumlu bir yönlendiricidir. Tek bir komut `keys.txt` dosyasını çalışan kombinasyonlara sahip bir sağlayıcı düğümüne dönüştürür:
 
 ```bash
 node src/connect-omniroute.js
-
-# or: npm run 9router
+# or: npm run omniroute
 ```
 
 Varsayılanlar: `--base http://localhost:20128`, `--password 123456`, `--name "EasyMax"`, `--prefix easymax`, `--base-url https://easymax.ai/v1`. Modeller daha sonra `easymax/<model id>` olarak sunulur ve tüm anahtarlar arasında yük dengelenir.
@@ -206,14 +217,14 @@ Varsayılanlar: `--base http://localhost:20128`, `--password 123456`, `--name "E
 | | |
 | --- | --- |
 | 🏢 Sağlayıcı | **EasyMax** — [easymax.ai](https://easymax.ai) |
-| 🎁 Sağlayıcının verdikleri | anahtar başına bir hesap — davet kodlu kayıt hesabı fonlar, her anahtar sohbet ile doğrulanır |
-| 🔑 Bir anahtar size ne kazandırır | kendi hesabına kapsanmış bir API anahtarı: aşağıdaki uç noktada 5 model kimliği, planınızın limitlerinde. Kota **hesapta** yaşar, bu aracın anahtar başına bir hesap oluşturmasının nedeni tam da budur |
+| 🎁 Sağlayıcının verdikleri | anahtar başına bir hesap — davet kodlu kayıt onu fonlar, her anahtar sohbetle doğrulanır |
+| 🔑 Bir anahtar size ne kazandırır | kendi hesabına kapsanmış bir API anahtarı: aşağıdaki uç noktadaki 5 model kimliği, planınızın limitlerinde. Kota **hesapta** yaşar, bu aracın neden anahtar başına bir hesap oluşturduğunun tam sebebi budur |
 | 🌐 API biçimi | OpenAI uyumlu: `POST https://easymax.ai/v1/chat/completions` |
-| 🔒 Verileriniz | yalnızca easymax.ai ve yapılandırdığınız gelen kutusu arka ucuyla iletişim kurulur; anahtarlar makinenizde kalır |
+| 🔒 Verileriniz | yalnızca easymax.ai ve yapılandırdığınız gelen kutusu arka ucuna bağlanılır; anahtarlar makinenizde kalır |
 
 ## 🐞 Sorunlar
 
-Panel kayıt biçimini değiştirirse, davet bonusunu kaldırırsa veya gruplarını yeniden anahtarlarsa, araç o adımda durur ve bunu bildirir. Çalıştırdığınız komut ve tam çıktıyla birlikte **[bir sorun açın](../../issues)**; PR'lar memnuniyetle karşılanır.
+Panel kayıt biçimini değiştirirse, davet bonusunu kaldırırsa veya gruplarını yeniden düzenlerse, araç o adımda durur ve bunu bildirir. Çalıştırdığınız komut ve tam çıktıyla birlikte **[bir sorun açın](../../issues)**; PR'lar memnuniyetle karşılanır.
 
 ## 📄 Lisans
 

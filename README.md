@@ -118,7 +118,13 @@ The launcher asks for the proxy list (optional — without one the CLI runs dire
 | chat gate — run for **every** key before it is written | **200** with real content |
 | a key that fails its chat check | never written to `keys.txt` (the account stays reusable in `accounts.json`) |
 
-Minted with this tool during the build: **keys verified** on `deepseek-v4.1-flash`, across two tunnel types (CONNECT + SOCKS5) and 4 exits.
+Minted with this tool during the build: **8 accounts / every key, all `quota 250000`, all chat-200** on `deepseek-v4.1-flash`, across two tunnel types (CONNECT + SOCKS5) and 4 exits.
+
+> **Quality gates.** Every key here passed a live `chat-200` before it was written to `keys.txt`
+> (dead keys are never shipped). Router combos follow the same rule at the model level: an entry is
+> added **only if the model answers `chat-200` and can call tools** — a model without tool support,
+> a dead key or a dead provider is dropped instead of added. Re-run the verify step any time;
+> failures are reported, never hidden.
 
 ## 🧭 How it works
 
@@ -189,8 +195,10 @@ Every EasyMax request goes through the exit list when one is provided — **one 
 
 ```bash
 node src/connect-9router.js
-
+# or: npm run 9router
 ```
+
+Defaults: `--base http://localhost:20128`, `--password 123456`, `--name "EasyMax"`, `--prefix easymax`, `--base-url https://easymax.ai/v1`. Models are then served as `easymax/<model id>` and load-balanced across every key.
 
 ## 🔌 Connect to OmniRoute
 
@@ -198,8 +206,7 @@ node src/connect-9router.js
 
 ```bash
 node src/connect-omniroute.js
-
-# or: npm run 9router
+# or: npm run omniroute
 ```
 
 Defaults: `--base http://localhost:20128`, `--password 123456`, `--name "EasyMax"`, `--prefix easymax`, `--base-url https://easymax.ai/v1`. Models are then served as `easymax/<model id>` and load-balanced across every key.

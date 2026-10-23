@@ -6,8 +6,8 @@
  *
  * The CLI's options stay configurable without reading its source: this launcher
  * asks for them, remembers the answers in `launcher.config.json`, and then runs
- * the CLI with the right flags — including the proxy list (optional: without a
- * list of exits the CLI connects directly).
+ * the CLI with the right flags — including the proxy list, which is the setting
+ * people most often need and cannot guess.
  *
  * Usage: node src/launcher.js            (menu)
  *        node src/launcher.js --help
@@ -24,7 +24,7 @@ const CLI = path.join(__dirname, 'cli.js');
 
 const defaults = {
   count: 50,
-  proxyFile: process.env.EASYMAX_PROXIES || 'proxies.txt',
+  proxyFile: process.env['EASYMAX_PROXIES'] || 'proxies.txt',
   model: "deepseek-v4.1-flash",
   routerBase: 'http://localhost:20128',
   routerPassword: '123456',
@@ -107,19 +107,19 @@ async function mintFlow(cfg) {
     console.log(`  ! ${cfg.proxyFile} not found — running WITHOUT a proxy (direct)`);
     console.log('    (put one exit per line there to route through proxies: http://host:port, socks5://host:port or host:port)');
   }
-  run(['--count', String(cfg.count), '--model', cfg.model], { EASYMAX_PROXIES: cfg.proxyFile });
+  run(['--count', String(cfg.count), '--model', cfg.model], { ['EASYMAX_PROXIES']: cfg.proxyFile });
 }
 
 async function verifyFlow(cfg) {
   cfg.proxyFile = await ask('Proxy list file', cfg.proxyFile);
   saveConfig(cfg);
-  run(['--verify-only'], { EASYMAX_PROXIES: cfg.proxyFile });
+  run(['--verify-only'], { ['EASYMAX_PROXIES']: cfg.proxyFile });
 }
 
 async function screenFlow(cfg) {
   cfg.proxyFile = await ask('Proxy list file to screen', cfg.proxyFile);
   saveConfig(cfg);
-  run(['--screen'], { EASYMAX_PROXIES: cfg.proxyFile });
+  run(['--screen'], { ['EASYMAX_PROXIES']: cfg.proxyFile });
 }
 
 async function connectFlow(cfg) {
