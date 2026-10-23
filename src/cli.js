@@ -583,14 +583,16 @@ function appendKey(key) {
 }
 const runReasons = new Map();
 const noteReason = (cls) => runReasons.set(cls, (runReasons.get(cls) || 0) + 1);
-/** Keys that minted but never passed the chat gate — retry material, not keys.txt. */
-function appendDead(key) {
-  if (!key) return;
+/** A key the panel refused outright (401/403/quota/ban) is parked in
+ *  keys-dead.txt as `key<TAB>sebep<TAB>ISO` — retry material, never keys.txt.
+ *  A transport failure or a 429 is not a key verdict, so it stays in keys.txt. */
+function appendDead(key, why) {
+  if (!key || ![401, 402, 403].includes(Number(why))) return;
   const have = fs.existsSync(DEAD_FILE)
-    ? fs.readFileSync(DEAD_FILE, 'utf8').split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+    ? fs.readFileSync(DEAD_FILE, 'utf8').split(/\r?\n/).map((s) => s.trim().split('\t')[0]).filter(Boolean)
     : [];
   if (have.includes(key)) return;
-  fs.appendFileSync(DEAD_FILE, `${key}\n`);
+  fs.appendFileSync(DEAD_FILE, `${key}\t${why}\t${new Date().toISOString()}\n`);
 }
 
 let writeChain = Promise.resolve();
@@ -745,7 +747,7 @@ async function mintOne(exits, startExit, index) {
       await recordAccount(rec);
       if (!gate.ok) {
         noteReason(`chat-${gate.status}`);
-        appendDead(acct.key);
+        appendDead(acct.key, gate.status);
         say(`  ✗ #${index + 1} ${acct.username}: key ${acct.key.slice(0, 8)}… failed the gate (HTTP ${gate.status}) ${gate.error}`);
         continue;
       }
