@@ -2,12 +2,12 @@
 'use strict';
 
 /**
- * Interactive launcher for the compiled build.
+ * Interactive launcher — the one-command path (`npm start` / `node src/launcher.js`).
  *
- * The CLI's options stay configurable without reading its source: this launcher
- * asks for them, remembers the answers in `launcher.config.json`, and then runs
- * the CLI with the right flags — including the proxy list, which is the setting
- * people most often need and cannot guess.
+ * The menu asks one thing (how many keys) and runs `node src/cli.js --auto --count N`.
+ * It never asks for a captcha, token or proxy: the captcha step is automatic
+ * (--auto — EasyMax's Turnstile is disabled), and `proxies.txt` is picked up by
+ * the CLI whenever it exists (otherwise the run is direct).
  *
  * Usage: node src/launcher.js            (menu)
  *        node src/launcher.js --help
@@ -16,16 +16,17 @@
 const fs = require('fs');
 const path = require('path');
 const readline = require('readline');
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const CONFIG = path.join(ROOT, 'launcher.config.json');
 const CLI = path.join(__dirname, 'cli.js');
+const KEYS_FILE = path.join(ROOT, 'keys.txt');
+const PROXY_FILE = process.env.EASYMAX_PROXIES || 'proxies.txt';
 
 const defaults = {
-  count: 50,
-  proxyFile: process.env['EASYMAX_PROXIES'] || 'proxies.txt',
-  model: "deepseek-v4.1-flash",
+  count: 10,
+  model: 'deepseek-v4.1-flash',
   routerBase: 'http://localhost:20128',
   routerPassword: '123456',
 };
@@ -64,6 +65,44 @@ function run(args, env = {}) {
   if (res.status !== 0) console.log(`  ! exited with code ${res.status}`);
 }
 
+/** Run the CLI with live output, and capture its `__MINT_SUMMARY__` tail. */
+function runCapture(args) {
+  return new Promise((resolve) => {
+    console.log('');
+    const child = spawn(process.execPath, [CLI, ...args], { cwd: ROOT, windowsHide: true });
+    let out = '';
+    child.stdout.on('data', (d) => { out += d; process.stdout.write(d); });
+    child.stderr.on('data', (d) => process.stderr.write(d));
+    child.on('close', (code) => {
+      if (code !== 0) console.log(`  ! exited with code ${code}`);
+      const line = out.split(/\r?\n/).filter((l) => l.includes('__MINT_SUMMARY__')).pop();
+      let summary = null;
+      if (line) {
+        try { summary = JSON.parse(line.slice(line.indexOf('__MINT_SUMMARY__') + '__MINT_SUMMARY__'.length).trim()); } catch (e) { summary = null; }
+      }
+      resolve(summary);
+    });
+  });
+}
+
+function printSummary(s) {
+  console.log('');
+  console.log('  ── summary ───────────────────────────────────────────────');
+  if (!s) {
+    console.log('  no machine summary from the CLI — see the log above');
+    console.log(`  keys.txt: ${KEYS_FILE}`);
+    console.log('  ──────────────────────────────────────────────────────────');
+    return;
+  }
+  const per = s.live ? Math.round(s.ms / s.live) : null;
+  console.log(`  live keys   ${s.live}/${s.requested}`);
+  console.log(`  latency     ${(s.ms / 1000).toFixed(1)}s total${per != null ? ` · ~${per} ms/key` : ''}`);
+  console.log(`  errors      ${s.errors && s.errors.length ? s.errors.join(', ') : 'none'}`);
+  console.log(`  keys.txt    ${s.keysFile}`);
+  if (s.deadFile) console.log(`  dead keys   ${s.deadFile} (retry on the next run)`);
+  console.log('  ──────────────────────────────────────────────────────────');
+}
+
 const BANNER_LOGO = String.raw`
 ███████╗ █████╗ ███████╗██╗   ██╗███╗   ███╗ █████╗ ██╗  ██╗
 ██╔════╝██╔══██╗██╔════╝╚██╗ ██╔╝████╗ ████║██╔══██╗╚██╗██╔╝
@@ -79,7 +118,7 @@ function banner() {
   const bold = '\x1b[1m';
   const reset = '\x1b[0m';
   const title = 'easymax-bulk-apikey';
-  const tagline = "one account per key — invite-code sign-up funds it, every key chat-verified";
+  const tagline = 'one account per key — invite-code sign-up funds it, every key chat-verified';
   const lines = BANNER_LOGO.replace(/^\n/, '').replace(/\n$/, '').split('\n');
   const width = Math.max(...lines.map((l) => [...l].length), [...title].length, [...tagline].length);
   const pad = (s) => s + ' '.repeat(width - [...s].length);
@@ -98,28 +137,20 @@ function banner() {
 }
 
 async function mintFlow(cfg) {
-  cfg.count = parseInt(await ask('How many accounts/keys do you want (any number)', cfg.count), 10) || cfg.count;
-  cfg.proxyFile = await ask('Proxy list file (one proxy per line)', cfg.proxyFile);
-  cfg.model = await ask('Model used for the live verification', cfg.model);
+  cfg.count = Math.max(1, parseInt(await ask('How many keys?', cfg.count), 10) || cfg.count);
   saveConfig(cfg);
-
-  if (!fs.existsSync(path.resolve(ROOT, cfg.proxyFile)) && !fs.existsSync(cfg.proxyFile)) {
-    console.log(`  ! ${cfg.proxyFile} not found — running WITHOUT a proxy (direct)`);
-    console.log('    (put one exit per line there to route through proxies: http://host:port, socks5://host:port or host:port)');
-  }
-  run(['--count', String(cfg.count), '--model', cfg.model], { ['EASYMAX_PROXIES']: cfg.proxyFile });
+  console.log(`  · ${fs.existsSync(path.resolve(ROOT, PROXY_FILE)) ? `using ${PROXY_FILE}` : `no ${PROXY_FILE} — running direct`}`);
+  console.log('  · solver: embedded (src/solver.js) — no browser needed (Turnstile is disabled on this panel)');
+  const summary = await runCapture(['--auto', '--count', String(cfg.count)]);
+  printSummary(summary);
 }
 
-async function verifyFlow(cfg) {
-  cfg.proxyFile = await ask('Proxy list file', cfg.proxyFile);
-  saveConfig(cfg);
-  run(['--verify-only'], { ['EASYMAX_PROXIES']: cfg.proxyFile });
+async function verifyFlow() {
+  run(['--verify-only']);
 }
 
-async function screenFlow(cfg) {
-  cfg.proxyFile = await ask('Proxy list file to screen', cfg.proxyFile);
-  saveConfig(cfg);
-  run(['--screen'], { ['EASYMAX_PROXIES']: cfg.proxyFile });
+async function screenFlow() {
+  run(['--screen']);
 }
 
 async function connectFlow(cfg) {
@@ -161,26 +192,25 @@ async function main() {
     rl.close();
     return;
   }
-
   if (process.argv.includes('--connect-omniroute')) {
     await connectFlowOmni(cfg);
     rl.close();
     return;
   }
   banner();
-  console.log('  1) Mint keys      — create one account per key and verify each with a live chat call');
-  console.log('  2) Verify keys    — re-check every key in keys.txt with a live chat call');
-  console.log('  3) Screen proxies — test your proxy list for exits that reach EasyMax');
-  console.log('  4) Settings       — show what this launcher remembers');
-  console.log('  5) Help           — CLI options and notes');
-  console.log('  6) Connect to 9Router — register the keys in keys.txt with a local 9Router');
-  console.log('  7) Connect to OmniRoute — register the keys in keys.txt with a local OmniRoute');
+  console.log('  1) Mint keys             — one account per key, each verified by a live chat call');
+  console.log('  2) Verify keys           — re-check every key in keys.txt');
+  console.log('  3) Screen proxies        — test your proxy list against EasyMax');
+  console.log('  4) Settings              — what this launcher remembers');
+  console.log('  5) Help                  — CLI options and notes');
+  console.log('  6) Connect to 9Router');
+  console.log('  7) Connect to OmniRoute');
   console.log('  q) Quit\n');
   const choice = (await ask('Choose', '1')).toLowerCase();
 
   if (choice === '1') await mintFlow(cfg);
-  else if (choice === '2') await verifyFlow(cfg);
-  else if (choice === '3') await screenFlow(cfg);
+  else if (choice === '2') await verifyFlow();
+  else if (choice === '3') await screenFlow();
   else if (choice === '4') console.log('\n' + JSON.stringify(cfg, null, 2));
   else if (choice === '5') run(['--help']);
   else if (choice === '6') await connectFlow(cfg);
@@ -190,6 +220,8 @@ async function main() {
 
 if (process.argv.includes('--help') || process.argv.includes('-h')) {
   console.log('Interactive launcher: run `node src/launcher.js` and pick a menu item.');
+  console.log('  npm start   or   node src/launcher.js');
+  console.log('Non-interactive equivalent: node src/cli.js --auto --count N');
   process.exit(0);
 }
 

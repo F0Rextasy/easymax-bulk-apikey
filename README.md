@@ -86,6 +86,24 @@ curl https://easymax.ai/v1/chat/completions \
 
 The `deepseek-v4-pro` id is a reasoning model: it answers with `reasoning_content` first and `content` only after the thinking budget, so give it `max_tokens` well above 100 or you will see an empty `content`.
 
+## 🚀 One command
+
+```bash
+node src/cli.js --count 10
+```
+
+That is the whole tool: one EasyMax account per key (funded by the invite code), its API key minted and kept **only** after a live `chat-200`. The captcha step is automatic — EasyMax ships with Cloudflare Turnstile *disabled* (the panel accepts an empty `?turnstile=`), so `--auto` (on by default) needs no browser; `src/solver.js` is where that is expressed. A `proxies.txt` next to the repo is picked up automatically (one pinned exit per account); without it the run goes direct.
+
+`--dry` prints the resolved plan — count, pool size, solver availability, models — and exits without touching a single file or making a request:
+
+```bash
+node src/cli.js --dry
+```
+
+Prefer a menu to flags? `npm start` (or `node src/launcher.js`) → **1) Mint keys** → *How many keys? [10]*.
+
+> ⚠️ **Terms & account risk.** This tool automates account creation and API-key issuance against a third-party panel. That may break the panel's Terms of Service and can get accounts, keys or IPs banned. **Automation is your own responsibility**: read the provider's terms, use your own inbox and proxies, and make sure you are allowed to do this where you live before you run it.
+
 ## 🛠 Quick start
 
 ```bash
@@ -95,17 +113,16 @@ cd easymax-bulk-apikey
 # 1) your proxy list, one per line (http://…, socks5://… or socks4a://…) — optional
 printf 'http://127.0.0.1:8080\n' > proxies.txt   # optional — without it the tool runs direct
 
-# 2) go
-node src/launcher.js        # interactive
-# or directly:
+# 2) go — one command
 node src/cli.js --count 50
+# or the menu:  node src/launcher.js        (interactive)
 ```
 
 A key is appended to `keys.txt` **only** after a live chat completion proves it; an account that never reaches that point is recorded in `accounts.json` and retried on the next run.
 
 ### 🖱️ The launcher
 
-The launcher asks for the proxy list (optional — without one the CLI runs direct), count and verification model, remembers them in `launcher.config.json`, and runs the CLI with the right flags.
+`npm start` (or `node src/launcher.js`) is the menu form of the same CLI: **1) Mint keys** → *How many keys? [10]* (Enter accepts 10) runs `node src/cli.js --auto --count N`. It never asks about a captcha, a token or a proxy — `proxies.txt` is used automatically when present. It ends with a summary table (live/total, latency, error classes) plus the `keys.txt` path; keys that failed the gate land in `keys-dead.txt`.
 
 ## ✅ Verified working — every key is tested
 
@@ -150,6 +167,7 @@ inbox (one address per account)                                  a fresh address
 
 ```bash
 node src/cli.js --count N [--conc N] [--model <id>] [--group <name>] [--pool <file>]
+node src/cli.js --dry             # print the resolved plan, touch nothing
 node src/cli.js --verify-only     # re-check every key in keys.txt
 node src/cli.js --screen          # test the proxy list against EasyMax
 ```
@@ -157,6 +175,8 @@ node src/cli.js --screen          # test the proxy list against EasyMax
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--count` | 5 | accounts (= keys) to mint |
+| `--auto` | on | use the embedded captcha solver (`--no-auto` opts out; EasyMax has no live captcha) |
+| `--dry` | — | print the resolved plan and exit (no accounts, no files, no network) |
 | `--conc` | 1 | accounts in flight at once (capped at 16) |
 | `--gap` | 1200 | pause in ms between rounds inside a worker |
 | `--model` | `deepseek-v4.1-flash` | model the live gate uses |
@@ -185,6 +205,8 @@ Every EasyMax request goes through the exit list when one is provided — **one 
 | --- | --- |
 | `keys.txt` | one chat-200 key per line — git-ignored |
 | `keys-ungated.txt` | keys that failed the re-check — retry later |
+| `keys-dead.txt` | keys that minted but never passed the chat gate — retry material |
+| `src/solver.js` | the captcha module behind `--auto` (Turnstile is disabled on this panel) |
 | `accounts.json` | username / password / e-mail / quota / key / gate result per account |
 | `proxies.txt` | your exits, one per line — git-ignored |
 | `proxies.live.txt` | survivors of `--screen` |

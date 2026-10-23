@@ -49,6 +49,7 @@ const net = require('net');
 const tls = require('tls');
 const http = require('http');
 const { URL } = require('url');
+const { solveCaptcha } = require('./solver.js');
 
 // Shipped as `<repo>/src/cli.js`; in the lab it sits in `providers/easymax/`,
 // so both layouts must resolve the same repo root for keys.txt / accounts.json.
@@ -56,6 +57,7 @@ const ROOT = path.basename(__dirname) === 'src' ? path.resolve(__dirname, '..') 
 const KEYS_FILE = path.join(ROOT, 'keys.txt');
 const UNGATED_FILE = path.join(ROOT, 'keys-ungated.txt');
 const ACCOUNTS_FILE = path.join(ROOT, 'accounts.json');
+const DEAD_FILE = path.join(ROOT, 'keys-dead.txt');
 
 const BASE = 'https://easymax.ai';
 const EMAILNATOR = 'https://www.emailnator.com';
@@ -77,12 +79,11 @@ const has = (name) => argv.includes(`--${name}`);
 if (has('help') || has('h')) {
   console.log(`easymax-bulk-apikey — mint EasyMax accounts, one key each, verified by a live chat call.
 
-  node src/cli.js --count 50         mint (a key is kept only after a chat 200)
-  node src/cli.js --verify-only      re-check every key in keys.txt
-  node src/cli.js --screen           test your proxy list against EasyMax
-  node src/cli.js --help
+  node src/cli.js --count N          one command: mint N accounts + keys (captcha handled automatically)
 
   --count N      accounts to mint                                  [5]
+  --auto         use the embedded captcha solver (DEFAULT — nothing to solve, see src/solver.js)
+  --dry          print the resolved plan and exit (no accounts, no files, no network)
   --conc N       accounts in flight (max 16)                       [1]
   --model <id>   model used for the live gate        [deepseek-v4.1-flash]
   --group <name> token group the key is created in               [deepseek]
@@ -90,6 +91,8 @@ if (has('help') || has('h')) {
   --pool <file>  proxy list, one exit per line (env EASYMAX_PROXIES) [optional]
   --broker <u>   inbox broker base URL(s), comma separated
   --inbox <c>    mailbox rail order                  [broker,emailnator,local]
+  --verify-only  re-check every key in keys.txt
+  --screen       test your proxy list against EasyMax
 
 Requests go through your proxy list when one is provided (--pool / env).
 Without a pool the tool connects directly.`);
@@ -116,6 +119,7 @@ const INBOX = arg('inbox', 'broker,emailnator,local')
 const PROXY_FILE = process.env.EASYMAX_PROXIES || arg('pool', arg('proxies', 'proxies.txt'));
 const VERIFY_ONLY = has('verify-only');
 const SCREEN_ONLY = has('screen');
+const AUTO = !has('no-auto');  // --auto is the DEFAULT; --no-auto is the escape hatch
 
 // ------------------------------------------------------------------ helpers
 
@@ -152,6 +156,19 @@ function loadExits() {
     return [null];
   }
   return exits;
+}
+
+if (has('dry')) {
+  const exits = loadExits();
+  console.log(`dry run — nothing minted, no files touched, no network calls
+  count    ${COUNT}
+  pool     ${exits.filter(Boolean).length ? `${exits.filter(Boolean).length} exit(s)` : 'DIRECT (no proxy)'}
+  solver   embedded (src/solver.js) — no browser needed (Turnstile is disabled on this panel)
+  auto     ${AUTO ? 'on (default)' : 'off'}
+  model    ${MODEL}
+  group    ${GROUP}
+  inbox    ${INBOX.join('→')}`);
+  process.exit(0);
 }
 
 // ------------------------------------------------------------------- tunnel
@@ -564,6 +581,17 @@ async function claimMailbox(exits, exitLine) {
 function appendKey(key) {
   fs.appendFileSync(KEYS_FILE, `${key}\n`);
 }
+const runReasons = new Map();
+const noteReason = (cls) => runReasons.set(cls, (runReasons.get(cls) || 0) + 1);
+/** Keys that minted but never passed the chat gate — retry material, not keys.txt. */
+function appendDead(key) {
+  if (!key) return;
+  const have = fs.existsSync(DEAD_FILE)
+    ? fs.readFileSync(DEAD_FILE, 'utf8').split(/\r?\n/).map((s) => s.trim()).filter(Boolean)
+    : [];
+  if (have.includes(key)) return;
+  fs.appendFileSync(DEAD_FILE, `${key}\n`);
+}
 
 let writeChain = Promise.resolve();
 function recordAccount(rec) {
@@ -587,14 +615,17 @@ async function signUp(exits, exitLine) {
   const username = randUser();
   const password = randPass();
   const box = await claimMailbox(exits, exitLine);
-  const reg = await exitJson(exits, exitLine, `${BASE}/api/user/register?turnstile=`, {
+  // the panel's Turnstile is disabled (accepts an empty token); the solver is the
+  // single place this is expressed — `--auto` needs no browser here.
+  const { token: ts } = await solveCaptcha({ type: 'turnstile', url: BASE, proxy: exitLine || null });
+  const reg = await exitJson(exits, exitLine, `${BASE}/api/user/register?turnstile=${encodeURIComponent(ts)}`, {
     method: 'POST',
     body: { username, password, email: box.address, aff_code: AFF },
   });
   if (!(reg.json && reg.json.success)) {
     return { username, password, box, error: `register HTTP ${reg.status}: ${String(reg.text).slice(0, 160)}` };
   }
-  const lg = await exitJson(exits, exitLine, `${BASE}/api/user/login?turnstile=`, {
+  const lg = await exitJson(exits, exitLine, `${BASE}/api/user/login?turnstile=${encodeURIComponent(ts)}`, {
     method: 'POST',
     body: { username, password },
   });
@@ -683,10 +714,12 @@ async function mintOne(exits, startExit, index) {
     try {
       acct = await signUp(exits, exitLine);
       if (acct.error) {
+        noteReason(String(acct.error).split(/\s+/)[0].slice(0, 24) || 'signup');
         say(`  ✗ #${index + 1} ${acct.error}`);
         continue;
       }
       if (!acct.key) {
+        noteReason('no-key');
         say(`  ✗ #${index + 1} ${acct.username}: no key issued (quota ${acct.quota})`);
         continue;
       }
@@ -711,6 +744,8 @@ async function mintOne(exits, startExit, index) {
       };
       await recordAccount(rec);
       if (!gate.ok) {
+        noteReason(`chat-${gate.status}`);
+        appendDead(acct.key);
         say(`  ✗ #${index + 1} ${acct.username}: key ${acct.key.slice(0, 8)}… failed the gate (HTTP ${gate.status}) ${gate.error}`);
         continue;
       }
@@ -718,10 +753,12 @@ async function mintOne(exits, startExit, index) {
       say(`  ✓ #${index + 1} ${acct.username} → ${acct.key.slice(0, 8)}…  quota ${acct.quota}  chat ${gate.status} ${gate.text}`);
       return rec;
     } catch (e) {
+      noteReason(String(e.message).split(':')[0].slice(0, 24) || 'error');
       say(`  ✗ #${index + 1} attempt ${attempt + 1} via ${maskExit(exitLine)}: ${e.message}`);
       await sleep(1500 * (attempt + 1));
     }
   }
+  noteReason('exhausted');
   await recordAccount({ index: index + 1, verdict: 'failed', at: new Date().toISOString() });
   return null;
 }
@@ -788,6 +825,8 @@ async function verifyOnly(exits) {
 }
 
 async function mint(exits) {
+  const t0 = Date.now();
+  runReasons.clear();
   say(
     `minting ${COUNT} account(s), conc ${CONC}, model ${MODEL}, group ${GROUP}, ` +
       `${exits.filter(Boolean).length ? `${exits.filter(Boolean).length} exit(s)` : 'direct (no proxy)'}, inbox ${INBOX.join('→')}`
@@ -812,6 +851,15 @@ async function mint(exits) {
     .join(', ');
   say(`done: ${ok} live key(s), ${failed} failed — keys.txt${rails ? ` · mailbox: ${rails}` : ''}`);
   if (!ok) process.exitCode = 1;
+  // machine-readable tail for the launcher's summary table
+  console.log('__MINT_SUMMARY__ ' + JSON.stringify({
+    requested: COUNT,
+    live: ok,
+    ms: Date.now() - t0,
+    errors: [...runReasons.entries()].map(([c, v]) => `${c}×${v}`),
+    keysFile: KEYS_FILE,
+    deadFile: fs.existsSync(DEAD_FILE) ? DEAD_FILE : null,
+  }));
 }
 
 (async () => {
