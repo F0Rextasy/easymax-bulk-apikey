@@ -185,13 +185,13 @@ node src/cli.js --screen          # test the proxy list against EasyMax
 | `--pool <file>` | `proxies.txt` | exit list (env `EASYMAX_PROXIES`) — optional: without a pool the CLI connects directly |
 | `--broker <urls>` | `http://127.0.0.1:9700,http://127.0.0.1:9701` | inbox broker base URL(s) |
 | `--inbox <chain>` | `broker,emailnator,local` | mailbox rail order |
-| `--tries` | 2 | exits tried per account before it is given up |
+| `--exits` | 6 | exits tried per account before it is given up |
 | `--verify-only` | — | re-run every key in `keys.txt` through the chat gate |
 | `--screen` | — | screen the pool, write the survivors to `proxies.live.txt` |
 
 ## 🛰️ Behind a proxy
 
-Every EasyMax request goes through the exit list when one is provided — **one pinned exit per account**: the register, login, token and gate calls of an account all ride the same line, and a dead exit hands the account to the next one in the pool (`--tries`). The tunnel is built in: **`http`/`https` CONNECT (with `user:pass@` proxy auth), `socks5` (including user/pass) and `socks4a`**.
+Every EasyMax request goes through the exit list when one is provided — **one pinned exit per account**: the register, login, token and gate calls of an account all ride the same line, and a dead exit hands the account to the next one in the pool (`--exits`). The tunnel is built in: **`http`/`https` CONNECT (with `user:pass@` proxy auth), `socks5` (including user/pass) and `socks4a`**.
 
 **Optional — recommended at scale (per-IP limits, bans).** The tool works without a proxy too.
 

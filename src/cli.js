@@ -32,7 +32,7 @@
  *                                 [http://127.0.0.1:9700,http://127.0.0.1:9701]
  *   --inbox <chain>  mailbox rail order                       [broker,emailnator,local]
  *   --mail-domain D  domain used by the `local` rail                     [qq.com]
- *   --tries N        exits tried per account before giving up             [2]
+ *   --exits N        exits tried per account before giving up             [6]
  *   --timeout MS     per-request timeout                                 [60000]
  *   --verify-only    re-run every key in keys.txt through the chat gate
  *   --screen         only test the proxy list against EasyMax
@@ -102,7 +102,7 @@ Without a pool the tool connects directly.`);
 const COUNT = Math.max(1, parseInt(arg('count', '5'), 10) || 5);
 const CONC = Math.min(16, Math.max(1, parseInt(arg('conc', '1'), 10) || 1));
 const GAP_MS = Math.max(0, parseInt(arg('gap', '1200'), 10) || 0);
-const TRIES = Math.max(1, parseInt(arg('tries', '2'), 10) || 2);
+const EXITS = Math.max(1, parseInt(arg('exits', '6'), 10) || 6);
 const TIMEOUT_MS = Math.max(5000, parseInt(arg('timeout', '60000'), 10) || 60000);
 const MODEL = arg('model', 'deepseek-v4.1-flash');
 const GROUP = arg('group', 'deepseek');
@@ -157,6 +157,12 @@ function loadExits() {
   }
   return exits;
 }
+
+/** A dead exit, not a panel verdict — the flow rotates to the next candidate. */
+const isExitError = (e) =>
+  /proxy connect failed|CONNECT refused|connect timeout|connect failed|ETIMEDOUT|ECONNREFUSED|ECONNRESET|ECONNABORTED|EPIPE|ENETUNREACH|EHOSTUNREACH|EAI_AGAIN|ENOTFOUND|getaddrinfo|socket hang up|secureConnect|TLS|handshake|unparseable exit|\btimeout\b/i.test(
+    String((e && e.message) || e),
+  );
 
 if (has('dry')) {
   const exits = loadExits();
@@ -709,8 +715,11 @@ async function chatGate(exits, exitLine, key, model = MODEL) {
   };
 }
 
+/** Accounts whose every candidate died at the transport layer (not a panel verdict). */
+let deadRoutes = 0;
 async function mintOne(exits, startExit, index) {
-  for (let attempt = 0; attempt < TRIES; attempt++) {
+  let transportDead = 0;
+  for (let attempt = 0; attempt < EXITS; attempt++) {
     const exitLine = attempt === 0 ? startExit : exits[(exits.indexOf(startExit) + attempt * 3 + 1) % exits.length];
     let acct = null;
     try {
@@ -756,10 +765,16 @@ async function mintOne(exits, startExit, index) {
       return rec;
     } catch (e) {
       noteReason(String(e.message).split(':')[0].slice(0, 24) || 'error');
-      say(`  ✗ #${index + 1} attempt ${attempt + 1} via ${maskExit(exitLine)}: ${e.message}`);
+      if (isExitError(e)) {
+        transportDead++;
+        say(`  ✗ #${index + 1} exit ${attempt + 1}/${EXITS} ${maskExit(exitLine)} dead (${String(e.message).slice(0, 70)}) → next exit`);
+      } else {
+        say(`  ✗ #${index + 1} attempt ${attempt + 1} via ${maskExit(exitLine)}: ${e.message}`);
+      }
       await sleep(1500 * (attempt + 1));
     }
   }
+  if (transportDead > 0 && transportDead === EXITS) deadRoutes++;
   noteReason('exhausted');
   await recordAccount({ index: index + 1, verdict: 'failed', at: new Date().toISOString() });
   return null;
@@ -852,6 +867,11 @@ async function mint(exits) {
     .map(([k, v]) => `${k} ${v}`)
     .join(', ');
   say(`done: ${ok} live key(s), ${failed} failed — keys.txt${rails ? ` · mailbox: ${rails}` : ''}`);
+  if (!ok && failed > 0 && deadRoutes === failed) {
+    const route = exits[0] === null ? 'direct mode (no proxy list)' : `${exits.length}-exit pool`;
+    console.error(`[fatal] no usable route — ${failed} account(s) × ${EXITS} candidate(s) over ${route}: every attempt died at the transport layer.`);
+    process.exit(1);
+  }
   if (!ok) process.exitCode = 1;
   // machine-readable tail for the launcher's summary table
   console.log('__MINT_SUMMARY__ ' + JSON.stringify({

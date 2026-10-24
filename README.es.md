@@ -186,13 +186,13 @@ node src/cli.js --screen          # test the proxy list against EasyMax
 | `--pool <file>` | `proxies.txt` | lista de salidas (env `EASYMAX_PROXIES`) — opcional: sin un pool el CLI se conecta directamente |
 | `--broker <urls>` | `http://127.0.0.1:9700,http://127.0.0.1:9701` | URL(s) base del broker de bandeja de entrada |
 | `--inbox <chain>` | `broker,emailnator,local` | orden del rail de buzón |
-| `--tries` | 2 | salidas probadas por cuenta antes de abandonarla |
+| `--exits` | 6 | salidas probadas por cuenta antes de abandonarla |
 | `--verify-only` | — | vuelve a ejecutar cada clave de `keys.txt` por la puerta de chat |
 | `--screen` | — | examina el pool, escribe los supervivientes en `proxies.live.txt` |
 
 ## 🛰️ Detrás de un proxy
 
-Cada petición a EasyMax pasa por la lista de salidas cuando se proporciona una — **una salida fijada por cuenta**: las llamadas de registro, inicio de sesión, token y puerta de una cuenta van todas por la misma línea, y una salida muerta pasa la cuenta a la siguiente del pool (`--tries`). El túnel está integrado: **`http`/`https` CONNECT (con autenticación de proxy `user:pass@`), `socks5` (incluido user/pass) y `socks4a`**.
+Cada petición a EasyMax pasa por la lista de salidas cuando se proporciona una — **una salida fijada por cuenta**: las llamadas de registro, inicio de sesión, token y puerta de una cuenta van todas por la misma línea, y una salida muerta pasa la cuenta a la siguiente del pool (`--exits`). El túnel está integrado: **`http`/`https` CONNECT (con autenticación de proxy `user:pass@`), `socks5` (incluido user/pass) y `socks4a`**.
 
 **Opcional — recomendado a escala (límites por IP, baneos).** La herramienta también funciona sin proxy.
 

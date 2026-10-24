@@ -185,13 +185,13 @@ node src/cli.js --screen          # test the proxy list against EasyMax
 | `--pool <file>` | `proxies.txt` | 出口列表（环境变量 `EASYMAX_PROXIES`）—— 可选：没有代理池时 CLI 直接连接 |
 | `--broker <urls>` | `http://127.0.0.1:9700,http://127.0.0.1:9701` | 收件箱 broker 基础 URL |
 | `--inbox <chain>` | `broker,emailnator,local` | 邮箱通道顺序 |
-| `--tries` | 2 | 每个账户在放弃前尝试的出口数 |
+| `--exits` | 6 | 每个账户在放弃前尝试的出口数 |
 | `--verify-only` | — | 通过聊天关卡重新检查 `keys.txt` 中的每个密钥 |
 | `--screen` | — | 筛选代理池，将存活者写入 `proxies.live.txt` |
 
 ## 🛰️ 使用代理
 
-当提供出口列表时，每个 EasyMax 请求都会经过它 —— **每个账户固定一个出口**：一个账户的注册、登录、token 和关卡调用都走同一条线路，失效的出口会将账户交给池中的下一个（`--tries`）。隧道是内置的：**`http`/`https` CONNECT（支持 `user:pass@` 代理认证）、`socks5`（包括用户名/密码）以及 `socks4a`**。
+当提供出口列表时，每个 EasyMax 请求都会经过它 —— **每个账户固定一个出口**：一个账户的注册、登录、token 和关卡调用都走同一条线路，失效的出口会将账户交给池中的下一个（`--exits`）。隧道是内置的：**`http`/`https` CONNECT（支持 `user:pass@` 代理认证）、`socks5`（包括用户名/密码）以及 `socks4a`**。
 
 **可选 —— 大规模使用时推荐（每 IP 限制、封禁）。** 该工具在没有代理时也能工作。
 

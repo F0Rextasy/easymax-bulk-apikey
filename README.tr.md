@@ -186,13 +186,13 @@ node src/cli.js --screen          # test the proxy list against EasyMax
 | `--pool <file>` | `proxies.txt` | çıkış listesi (ortam değişkeni `EASYMAX_PROXIES`) — isteğe bağlı: havuz olmadan CLI doğrudan bağlanır |
 | `--broker <urls>` | `http://127.0.0.1:9700,http://127.0.0.1:9701` | gelen kutusu broker temel URL(ler)i |
 | `--inbox <chain>` | `broker,emailnator,local` | posta kutusu hattı sırası |
-| `--tries` | 2 | hesap vazgeçilmeden önce denenen çıkış sayısı |
+| `--exits` | 6 | hesap vazgeçilmeden önce denenen çıkış sayısı |
 | `--verify-only` | — | `keys.txt` içindeki her anahtarı sohbet kapısından yeniden geçir |
 | `--screen` | — | havuzu tara, hayatta kalanları `proxies.live.txt` dosyasına yaz |
 
 ## 🛰️ Proxy arkasında
 
-Bir çıkış listesi sağlandığında her EasyMax isteği ondan geçer — **hesap başına bir sabitlenmiş çıkış**: bir hesabın kayıt, giriş, token ve kapı çağrılarının tümü aynı hattı kullanır ve ölü bir çıkış hesabı havuzdaki bir sonrakine devreder (`--tries`). Tünel yerleşiktir: **`http`/`https` CONNECT (`user:pass@` proxy kimlik doğrulamasıyla), `socks5` (kullanıcı/parola dahil) ve `socks4a`**.
+Bir çıkış listesi sağlandığında her EasyMax isteği ondan geçer — **hesap başına bir sabitlenmiş çıkış**: bir hesabın kayıt, giriş, token ve kapı çağrılarının tümü aynı hattı kullanır ve ölü bir çıkış hesabı havuzdaki bir sonrakine devreder (`--exits`). Tünel yerleşiktir: **`http`/`https` CONNECT (`user:pass@` proxy kimlik doğrulamasıyla), `socks5` (kullanıcı/parola dahil) ve `socks4a`**.
 
 **İsteğe bağlı — ölçekte önerilir (IP başına limitler, yasaklar).** Araç proxy olmadan da çalışır.
 
