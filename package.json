@@ -12,6 +12,9 @@
   "engines": {
     "node": ">=18"
   },
+  "dependencies": {
+    "puppeteer-core": "^24.10.0"
+  },
   "scripts": {
     "start": "node src/launcher.js",
     "mint": "node src/cli.js --auto",

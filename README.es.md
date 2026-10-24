@@ -35,25 +35,25 @@
 
 ## ✨ Por qué existe esto
 
-EasyMax es un panel de New API con **registro mediante simple usuario + contraseña + correo electrónico** (Turnstile desactivado, sin verificación por correo) cuya cuota de bienvenida proviene de un **código de invitación**: un registro sin más acaba en `quota: 0` y su clave responde `403 用户额度不足`, mientras que el mismo registro con un `aff_code` otorga **250000 de cuota (≈ $0.50) por cuenta** — medido el 2026-10-19, y la razón por la que este rail existe. La unidad que escala es *una cuenta por clave*; la herramienta lo convierte en un `keys.txt` donde **cada línea sobrevivió a una llamada de chat en vivo**, una salida de proxy fijada por cuenta, buzón desde tu propio rail de bandeja de entrada.
+EasyMax es un panel de New API con **registro mediante simple usuario + contraseña + correo electrónico** (sin verificación por correo) cuya cuota de bienvenida proviene de un **código de invitación**: un registro sin más llega a `quota: 0` y su clave responde `403 用户额度不足`, mientras que un registro que lleva el `aff_code` de una cuenta **activa** otorga **250000 de cuota (≈ $0.50) por cuenta** — re-medido el 2026-10-24. Ese código nunca está incrustado en este repositorio: la herramienta registra una cuenta semilla y lee el código de vuelta desde el panel (`GET /api/user/aff`) antes de acuñar, porque un código distribuido muere con su dueño (el código de flota que solía vivir aquí ya paga `quota: 0`). Cloudflare Turnstile está **activado** — `src/solver.js` acuña un token real en un Chrome fuera de pantalla a través de la misma salida, por lo que se requieren `npm install` (puppeteer-core) y un Chrome en la máquina. La unidad que escala es *una cuenta por clave*; la herramienta convierte eso en un `keys.txt` donde **cada línea sobrevivió a una llamada de chat en vivo**, una salida de proxy fijada por cuenta, buzón desde tu propio riel de bandeja de entrada.
 
 ## 🎁 Nivel gratuito — cuánto obtienes
 
-**Cada cuenta se financia con el código de invitación que envías al registrarte** — ese es todo el nivel gratuito.
+**Cada cuenta se financia con el código de invitación con el que se registra — y la herramienta toma ese código del propio panel** — ese es todo el nivel gratuito.
 
 | Qué | Valor |
 | --- | --- |
-| Cuota de bienvenida | **250000** (≈ $0.50) por cuenta, consumida por token en el grupo de la clave |
-| De dónde viene | `POST /api/user/register?turnstile=` con `aff_code=<code>` |
+| Cuota de bienvenida | **250000** (≈ $0.50) por cuenta, gastada por token en el grupo de la clave |
+| De dónde viene | `POST /api/user/register?turnstile=` con `aff_code=<code>`, donde `<code>` es el **código propio de una cuenta activa** (`GET /api/user/aff`) |
 | Sin código de invitación | `quota: 0` → la clave responde `403 用户额度不足` en cada modelo con precio |
 | Tarjeta requerida | **No** |
-| Captcha | **ninguno** — Turnstile está desactivado en el registro y el inicio de sesión (`?turnstile=` acepta un valor vacío) |
+| Captcha | **Cloudflare Turnstile, activado** — un token real, acuñado en un Chrome fuera de pantalla a través de la misma salida (`src/solver.js`; `npm install` + un Chrome en la máquina) |
 | Verificación por correo | **no requerida** — el panel almacena la dirección y nunca envía un código |
-| La unidad que escala | **una cuenta = una clave** → `--count N` en realidad significa "N cuentas financiadas" |
+| La unidad que escala | **una cuenta = una clave** → `--count N` es realmente "N cuentas financiadas" |
 
-`--aff` usa por defecto el código de invitación de la flota; apúntalo al tuyo y cada cuenta que crees te acreditará la comisión del panel (10 % para este panel).
+`--code <code>` fija el código de invitación (el código de tu propia cuenta, que además te acredita la comisión del panel — 10 % aquí) y omite la cuenta semilla; si lo omites, la herramienta registra primero una cuenta semilla y cosecha su código, de modo que cada cuenta de la ejecución se financia con un código **activo**.
 
-> 💡 El nivel gratuito lo define EasyMax y puede cambiar. Consulta las cifras en vivo en [easymax.ai](https://easymax.ai) — y deja que la propia puerta de la herramienta decida:
+> 💡 El nivel gratuito lo establece EasyMax y puede cambiar. Consulta los números en vivo en [easymax.ai](https://easymax.ai) — y deja que la propia puerta de la herramienta decida:
 
 ```bash
 node src/cli.js --verify-only     # every key in keys.txt is re-tested with a real chat call
@@ -61,17 +61,17 @@ node src/cli.js --verify-only     # every key in keys.txt is re-tested with a re
 
 ## 🤖 Modelos — los 5
 
-El catálogo del panel incluye **101 ids de modelo** (`GET /api/pricing`) repartidos en grupos; **el grupo de token que creas decide qué puede servir una clave**. Los ids marcados abajo se probaron con una llamada de chat real en una cuenta recién creada:
+El catálogo del panel contiene **101 ids de modelo** (`GET /api/pricing`) repartidos en grupos; el **grupo de tokens con el que acuñas decide qué puede servir una clave**. Los ids marcados abajo se ejecutaron mediante una llamada de chat real en una cuenta recién acuñada:
 
-| ID de modelo | Grupo de token | ✓ |
+| ID del modelo | Grupo de tokens | ✓ |
 | --- | --- | --- |
-| `deepseek-v4.1-flash` | `deepseek` (por defecto) | ✓ |
+| `deepseek-v4.1-flash` | `deepseek` (predeterminado) | ✓ |
 | `deepseek-v4-pro` | `deepseek` | ✓ |
 | `gpt-6-luna` | `default` | ✓ |
 | `gpt-5.6-luna` | `default` | ✓ |
 | `gpt-6.1-sol` | `default` | ✓ |
 
-`GET /v1/models` responde exactamente la lista del grupo: **2 ids** para una clave del grupo `deepseek`, **14 ids** para una clave del grupo `default` (`gpt-5.5`, `gpt-5.5-openai-compact`, `gpt-5.6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-6-astra`, `gpt-6-luna`, `gpt-6-sol`, `gpt-6.1-sol`, `gpt-5.3-codex-spark`, `codex-auto-review`, `gpt-image-2`, `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`). El rail crea `--group deepseek` por defecto porque esos ids son los más baratos por token, así que una cuenta con 250000 de cuota dura más con ellos; pasa `--group default` (o cualquier otro nombre de grupo que exponga el panel) para crear una clave para esa familia en su lugar.
+`GET /v1/models` responde exactamente la lista del grupo: **2 ids** para una clave del grupo `deepseek`, **14 ids** para una clave del grupo `default` (`gpt-5.5`, `gpt-5.5-openai-compact`, `gpt-5.6-luna`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-6-astra`, `gpt-6-luna`, `gpt-6-sol`, `gpt-6.1-sol`, `gpt-5.3-codex-spark`, `codex-auto-review`, `gpt-image-2`, `gpt-image-2.5-flare`, `gpt-image-2.5-sunburst`). El riel acuña `--group deepseek` de forma predeterminada porque esos ids son los más baratos por token, así que una cuenta con 250000 de cuota dura más con ellos; pasa `--group default` (o cualquier otro nombre de grupo que exponga el panel) para acuñar una clave para esa familia en su lugar.
 
 ## 🧪 Cómo usar la API
 
@@ -92,15 +92,15 @@ El id `deepseek-v4-pro` es un modelo de razonamiento: responde primero con `reas
 node src/cli.js --count 10
 ```
 
-Esa es toda la herramienta: una cuenta de EasyMax por clave (financiada por el código de invitación), su clave API creada y conservada **solo** tras un `chat-200` en vivo. El paso del captcha es automático — EasyMax viene con Cloudflare Turnstile *desactivado* (el panel acepta un `?turnstile=` vacío), así que `--auto` (activado por defecto) no necesita navegador; `src/solver.js` es donde se expresa eso. Un `proxies.txt` junto al repositorio se detecta automáticamente (una salida fijada por cuenta); sin él, la ejecución va directa.
+Esa es toda la herramienta: una cuenta de EasyMax por clave (financiada por el código de invitación que devuelve el panel), su clave API acuñada y conservada **solo** tras un `chat-200` en vivo. El paso del captcha también es automático — el panel ejecuta Cloudflare Turnstile, y `src/solver.js` (activado de forma predeterminada tras `--auto`) acuña un token real en un Chrome fuera de pantalla **a través de la misma salida**, porque el token está vinculado a la IP que lo resuelve; para eso sirve el `npm install` de una sola vez. Un `proxies.txt` junto al repositorio se detecta automáticamente (una salida fijada por cuenta); sin él, la ejecución va directa.
 
-`--dry` imprime el plan resuelto — recuento, tamaño del pool, disponibilidad del solver, modelos — y sale sin tocar un solo archivo ni hacer una petición:
+`--dry` imprime el plan resuelto — cantidad, tamaño del pool, disponibilidad del solver, modelos — y sale sin tocar un solo archivo ni hacer una petición:
 
 ```bash
 node src/cli.js --dry
 ```
 
-¿Prefieres un menú a las flags? `npm start` (o `node src/launcher.js`) → **1) Mint keys** → *How many keys? [10]*.
+¿Prefieres un menú a las banderas? `npm start` (o `node src/launcher.js`) → **1) Mint keys** → *How many keys? [10]*.
 
 > ⚠️ **Términos y riesgo de cuenta.** Esta herramienta automatiza la creación de cuentas y la emisión de claves API contra un panel de terceros. Eso puede infringir los Términos de Servicio del panel y puede provocar el baneo de cuentas, claves o IPs. **La automatización es tu propia responsabilidad**: lee los términos del proveedor, usa tu propio buzón y proxies, y asegúrate de que tienes permitido hacer esto donde vives antes de ejecutarlo.
 
@@ -111,35 +111,39 @@ node src/cli.js --dry
 # clone or fork this repository, then:
 cd easymax-bulk-apikey
 
-# 1) your proxy list, one per line (http://…, socks5://… or socks4a://…) — optional
+# 1) dependencies for the captcha step (puppeteer-core — bring a Chrome on the machine)
+npm install
+
+# 2) your proxy list, one per line (http://…, socks5://… or socks4a://…) — optional
 printf 'http://127.0.0.1:8080\n' > proxies.txt   # optional — without it the tool runs direct
 
-# 2) go — one command
+# 3) go — one command
 node src/cli.js --count 50
 # or the menu:  node src/launcher.js        (interactive)
 ```
 
 Una clave se añade a `keys.txt` **solo** después de que una finalización de chat en vivo la demuestre; una cuenta que nunca llega a ese punto se registra en `accounts.json` y se reintenta en la siguiente ejecución.
 
-### 🖱️ El launcher
+### 🖱️ El lanzador
 
-`npm start` (o `node src/launcher.js`) es la forma de menú del mismo CLI: **1) Mint keys** → *How many keys? [10]* (Enter acepta 10) ejecuta `node src/cli.js --auto --count N`. Nunca pregunta por un captcha, un token o un proxy — `proxies.txt` se usa automáticamente cuando está presente. Termina con una tabla resumen (en vivo/total, latencia, clases de error) más la ruta de `keys.txt`; las claves que fallaron la puerta acaban en `keys-dead.txt`.
+`npm start` (o `node src/launcher.js`) es la forma de menú del mismo CLI: **1) Mint keys** → *How many keys? [10]* (Enter acepta 10) ejecuta `node src/cli.js --auto --count N`. Nunca pregunta por un captcha, un token ni un proxy — `proxies.txt` se usa automáticamente cuando está presente. Termina con una tabla de resumen (activas/total, latencia, clases de error) más la ruta de `keys.txt`; las claves que fallaron la puerta acaban en `keys-dead.txt`.
 
 ## ✅ Verificado y funcionando — cada clave se prueba
 
 | Comprobación | Resultado |
 | --- | --- |
-| registro `POST /api/user/register?turnstile=` | **200** `{"success":true}` — con `aff_code`, la cuenta acaba en `quota: 250000` |
-| inicio de sesión `POST /api/user/login?turnstile=` | **200** — payload de New-API **v2** (`access_token` JWT + sesión) |
-| auth | `Authorization: Bearer <access_token>` + `New-Api-User: <uid>` en `/api/token/*` |
+| registro `POST /api/user/register?turnstile=` | **200** `{"success":true}` — con un `aff_code` activo, la cuenta llega a `quota: 250000` |
+| el Turnstile del registro | se requiere un token real (`Turnstile 校验失败` sin uno) y se acuña desde la misma salida que lo gasta |
+| inicio de sesión `POST /api/user/login?turnstile=` | **200** — carga útil de New-API **v2** (`access_token` JWT + sesión) |
+| autenticación | `Authorization: Bearer <access_token>` + `New-Api-User: <uid>` en `/api/token/*` |
 | clave | `POST /api/token/ {group}` → **200**, luego `POST /api/token/<id>/key` → clave completa |
 | puerta de chat — ejecutada para **cada** clave antes de escribirse | **200** con contenido real |
 | una clave que falla su comprobación de chat | nunca se escribe en `keys.txt` (la cuenta sigue siendo reutilizable en `accounts.json`) |
 
-Creadas con esta herramienta durante la compilación: **8 cuentas / cada clave, todas `quota 250000`, todas chat-200** en `deepseek-v4.1-flash`, a través de dos tipos de túnel (CONNECT + SOCKS5) y 4 salidas.
+Acuñadas con esta herramienta durante la compilación: **8 cuentas / cada clave, todas `quota 250000`, todas chat-200** en `deepseek-v4.1-flash`, a través de dos tipos de túnel (CONNECT + SOCKS5) y 4 salidas. Re-medido el 2026-10-24 a través del propio CLI de este repositorio (`--count 1`, una salida WARP): el propio código de la cuenta semilla financió la cuenta acuñada con `quota 250000` y su clave respondió chat-200 en dos prompts diferentes.
 
 > **Puertas de calidad.** Cada clave aquí pasó un `chat-200` en vivo antes de escribirse en `keys.txt`
-> (las claves muertas nunca se entregan). Las combinaciones del router siguen la misma regla a nivel de modelo: una entrada se
+> (las claves muertas nunca se distribuyen). Las combinaciones del router siguen la misma regla a nivel de modelo: una entrada se
 > añade **solo si el modelo responde `chat-200` y puede llamar a herramientas** — un modelo sin soporte de herramientas,
 > una clave muerta o un proveedor muerto se descarta en lugar de añadirse. Vuelve a ejecutar el paso de verificación cuando quieras;
 > los fallos se reportan, nunca se ocultan.
@@ -157,7 +161,9 @@ inbox (one address per account)                                  a fresh address
 
 | Paso | Llamada | Notas |
 | --- | --- | --- |
-| buzón | broker `POST /create` → emailnator → dirección generada | el panel solo almacena la dirección; el rail nunca se bloquea esperando correo |
+| captcha | `src/solver.js` — Chrome fuera de pantalla, fijado a la salida de la cuenta | Turnstile está activado y vincula su token a la IP que lo gasta |
+| código de invitación | una cuenta semilla → `GET /api/user/aff` | la propia respuesta del panel es el código con el que se registra cada cuenta de la ejecución (`--code` fija uno en su lugar) |
+| buzón | broker `POST /create` → emailnator → dirección generada | el panel solo almacena la dirección; el riel nunca se bloquea esperando correo |
 | registro | `POST /api/user/register?turnstile= {username,password,email,aff_code}` | el código de invitación es lo que financia la cuenta |
 | inicio de sesión | `POST /api/user/login?turnstile= {username,password}` | `access_token` devuelto en el cuerpo |
 | cuenta | `GET /api/user/self` | da `id` (→ `New-Api-User`) y la `quota` que prueba que la invitación funcionó |
@@ -173,32 +179,32 @@ node src/cli.js --verify-only     # re-check every key in keys.txt
 node src/cli.js --screen          # test the proxy list against EasyMax
 ```
 
-| Flag | Por defecto | Significado |
+| Bandera | Predeterminado | Significado |
 | --- | --- | --- |
-| `--count` | 5 | cuentas (= claves) a crear |
-| `--auto` | activado | usa el solver de captcha integrado (`--no-auto` lo desactiva; EasyMax no tiene captcha en vivo) |
-| `--dry` | — | imprime el plan resuelto y sale (sin cuentas, sin archivos, sin red) |
+| `--count` | 5 | cuentas (= claves) a acuñar |
+| `--auto` | activado | usar el solver de captcha integrado (`--no-auto` lo desactiva; el paso del captcha es automático — ver `src/solver.js`) |
+| `--dry` | — | imprimir el plan resuelto y salir (sin cuentas, sin archivos, sin red) |
 | `--conc` | 1 | cuentas en vuelo a la vez (limitado a 16) |
 | `--gap` | 1200 | pausa en ms entre rondas dentro de un worker |
 | `--model` | `deepseek-v4.1-flash` | modelo que usa la puerta en vivo |
-| `--group` | `deepseek` | grupo de token en el que se crea la clave (`default` sirve la familia gpt) |
-| `--aff` | código de invitación de la flota | código de invitación enviado al registrarse — esta es la fuente de la cuota |
-| `--pool <file>` | `proxies.txt` | lista de salidas (env `EASYMAX_PROXIES`) — opcional: sin un pool el CLI se conecta directamente |
-| `--broker <urls>` | `http://127.0.0.1:9700,http://127.0.0.1:9701` | URL(s) base del broker de bandeja de entrada |
-| `--inbox <chain>` | `broker,emailnator,local` | orden del rail de buzón |
+| `--group` | `deepseek` | grupo de tokens en el que se crea la clave (`default` sirve la familia gpt) |
+| `--code <code>` | leído de una cuenta semilla activa | código de invitación enviado en el registro — esta es la fuente de la cuota |
+| `--pool <file>` | `proxies.txt` | lista de salidas (env `EASYMAX_PROXIES`) — opcional: sin un pool, el CLI se conecta directamente |
+| `--broker <urls>` | `http://127.0.0.1:9700,http://127.0.0.1:9701` | URL(s) base del broker de buzón |
+| `--inbox <chain>` | `broker,emailnator,local` | orden del riel de buzones |
 | `--exits` | 6 | salidas probadas por cuenta antes de abandonarla |
-| `--verify-only` | — | vuelve a ejecutar cada clave de `keys.txt` por la puerta de chat |
-| `--screen` | — | examina el pool, escribe los supervivientes en `proxies.live.txt` |
+| `--verify-only` | — | volver a ejecutar cada clave de `keys.txt` a través de la puerta de chat |
+| `--screen` | — | examinar el pool, escribir los supervivientes en `proxies.live.txt` |
 
 ## 🛰️ Detrás de un proxy
 
-Cada petición a EasyMax pasa por la lista de salidas cuando se proporciona una — **una salida fijada por cuenta**: las llamadas de registro, inicio de sesión, token y puerta de una cuenta van todas por la misma línea, y una salida muerta pasa la cuenta a la siguiente del pool (`--exits`). El túnel está integrado: **`http`/`https` CONNECT (con autenticación de proxy `user:pass@`), `socks5` (incluido user/pass) y `socks4a`**.
+Cada petición a EasyMax pasa por la lista de salidas cuando se proporciona una — **una salida fijada por cuenta**: el registro, el inicio de sesión, el token y las llamadas de la puerta de una cuenta van todos por la misma línea, y una salida muerta pasa la cuenta a la siguiente del pool (`--exits`). El túnel viene integrado: **`http`/`https` CONNECT (con autenticación de proxy `user:pass@`), `socks5` (incluido usuario/contraseña) y `socks4a`**.
 
 **Opcional — recomendado a escala (límites por IP, baneos).** La herramienta también funciona sin proxy.
 
-- **Con un pool:** pasa `--pool <file>` (o define `EASYMAX_PROXIES`) — una salida fijada por cuenta, como arriba.
-- **Sin un pool:** el CLI imprime `running WITHOUT a proxy (direct)` y se conecta directamente; el registro, la creación de claves y la puerta de chat no cambian — solo que los paquetes salen por tu propia línea.
-- Las llamadas al broker de bandeja de entrada van a `localhost` en ambos modos, donde tu propio broker hace su propia salida.
+- **Con un pool:** pasa `--pool <file>` (o establece `EASYMAX_PROXIES`) — una salida fijada por cuenta, como arriba.
+- **Sin un pool:** el CLI imprime `running WITHOUT a proxy (direct)` y se conecta directamente; el registro, la acuñación de claves y la puerta de chat no cambian — solo que los paquetes salen desde tu propia línea.
+- Las llamadas al broker de buzón van a `localhost` en cualquiera de los dos modos, donde tu propio broker hace su propia salida.
 
 ## 📄 Archivos
 
@@ -206,8 +212,8 @@ Cada petición a EasyMax pasa por la lista de salidas cuando se proporciona una 
 | --- | --- |
 | `keys.txt` | una clave chat-200 por línea — ignorada por git |
 | `keys-ungated.txt` | claves que fallaron la re-verificación — reintentar más tarde |
-| `keys-dead.txt` | claves que se crearon pero nunca pasaron la puerta de chat — material para reintentar |
-| `src/solver.js` | el módulo de captcha detrás de `--auto` (Turnstile está desactivado en este panel) |
+| `keys-dead.txt` | claves que se acuñaron pero nunca pasaron la puerta de chat — material para reintentar |
+| `src/solver.js` | el módulo de captcha tras `--auto` — un token Turnstile real, acuñado en un Chrome fuera de pantalla a través de la salida de la cuenta |
 | `accounts.json` | usuario / contraseña / correo / cuota / clave / resultado de la puerta por cuenta |
 | `proxies.txt` | tus salidas, una por línea — ignorada por git |
 | `proxies.live.txt` | supervivientes de `--screen` |
@@ -221,7 +227,7 @@ node src/connect-9router.js
 # or: npm run 9router
 ```
 
-Valores por defecto: `--base http://localhost:20128`, `--password 123456`, `--name "EasyMax"`, `--prefix easymax`, `--base-url https://easymax.ai/v1`. Los modelos se sirven entonces como `easymax/<model id>` y se balancean entre todas las claves.
+Predeterminados: `--base http://localhost:20128`, `--password 123456`, `--name "EasyMax"`, `--prefix easymax`, `--base-url https://easymax.ai/v1`. Los modelos se sirven entonces como `easymax/<model id>` y se balancean la carga entre todas las claves.
 
 ## 🔌 Conectar con OmniRoute
 
@@ -232,7 +238,7 @@ node src/connect-omniroute.js
 # or: npm run omniroute
 ```
 
-Valores por defecto: `--base http://localhost:20128`, `--password 123456`, `--name "EasyMax"`, `--prefix easymax`, `--base-url https://easymax.ai/v1`. Los modelos se sirven entonces como `easymax/<model id>` y se balancean entre todas las claves.
+Predeterminados: `--base http://localhost:20128`, `--password 123456`, `--name "EasyMax"`, `--prefix easymax`, `--base-url https://easymax.ai/v1`. Los modelos se sirven entonces como `easymax/<model id>` y se balancean la carga entre todas las claves.
 
 ## 🔑 Qué te da una clave
 
@@ -241,16 +247,16 @@ Valores por defecto: `--base http://localhost:20128`, `--password 123456`, `--na
 | 🏢 Proveedor | **EasyMax** — [easymax.ai](https://easymax.ai) |
 | 🎁 Qué da el proveedor | una cuenta por clave — el registro con código de invitación la financia, cada clave verificada por chat |
 | 🔑 Qué te da una clave | una clave API limitada a su propia cuenta: los 5 ids de modelo en el endpoint de abajo, con los límites de tu plan. La cuota vive en la **cuenta**, que es exactamente por lo que esta herramienta crea una cuenta por clave |
-| 🌐 Forma de la API | compatible con OpenAI: `POST https://easymax.ai/v1/chat/completions` |
-| 🔒 Tus datos | solo se contacta con easymax.ai y el backend de bandeja de entrada que configures; las claves se quedan en tu máquina |
+| 🌐 Forma de la API | Compatible con OpenAI: `POST https://easymax.ai/v1/chat/completions` |
+| 🔒 Tus datos | solo se contacta con easymax.ai y el backend de buzón que configures; las claves permanecen en tu máquina |
 
 ## 🐞 Problemas
 
-Si el panel cambia la forma de su registro, elimina el bono de invitación o recambia sus grupos, la herramienta se detiene en ese paso y lo indica. **[Abre un issue](../../issues)** con el comando que ejecutaste y la salida exacta; los PR son bienvenidos.
+Si el panel cambia la forma de su registro, elimina el bono de invitación o cambia las claves de sus grupos, la herramienta se detiene en ese paso y lo indica. **[Abre un issue](../../issues)** con el comando que ejecutaste y la salida exacta; los PRs son bienvenidos.
 
 ## 📄 Licencia
 
-MIT © 2026 — consulta [LICENSE](LICENSE).
+MIT © 2026 — ver [LICENSE](LICENSE).
 
 <div align="center">
 

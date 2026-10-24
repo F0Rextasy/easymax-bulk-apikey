@@ -35,23 +35,23 @@
 
 ## ✨ Why this exists
 
-EasyMax is a New API panel with a **plain username + password + e-mail sign-up** (Turnstile disabled, no e-mail verification) whose welcome quota comes from an **invite code**: a bare sign-up lands on `quota: 0` and its key answers `403 用户额度不足`, while the same registration with an `aff_code` grants **250000 quota (≈ $0.50) per account** — measured 2026-10-19, and the reason this rail exists at all. The unit that scales is *one account per key*; the tool turns that into a `keys.txt` where **every line survived a live chat call**, one pinned proxy exit per account, mailbox from your own inbox rail.
+EasyMax is a New API panel with a **plain username + password + e-mail sign-up** (no e-mail verification) whose welcome quota comes from an **invite code**: a bare sign-up lands on `quota: 0` and its key answers `403 用户额度不足`, while a registration carrying a **live** account's `aff_code` grants **250000 quota (≈ $0.50) per account** — re-measured 2026-10-24. That code is never baked into this repo: the tool registers one seed account and reads the code back from the panel (`GET /api/user/aff`) before it mints, because a shipped code dies with its owner (the fleet code that used to live here already pays `quota: 0`). Cloudflare Turnstile is **on** — `src/solver.js` mints a real token in an offscreen Chrome through the same exit, so `npm install` (puppeteer-core) and a Chrome on the machine are required. The unit that scales is *one account per key*; the tool turns that into a `keys.txt` where **every line survived a live chat call**, one pinned proxy exit per account, mailbox from your own inbox rail.
 
 ## 🎁 Free tier — how much you get
 
-**Every account is funded by the invite code you send at sign-up** — that is the whole free tier.
+**Every account is funded by the invite code it registers with — and the tool takes that code from the panel itself** — that is the whole free tier.
 
 | What | Value |
 | --- | --- |
 | Welcome quota | **250000** (≈ $0.50) per account, spent per token on the key's group |
-| Where it comes from | `POST /api/user/register?turnstile=` with `aff_code=<code>` |
+| Where it comes from | `POST /api/user/register?turnstile=` with `aff_code=<code>`, where `<code>` is a **live account's own code** (`GET /api/user/aff`) |
 | Without an invite code | `quota: 0` → the key answers `403 用户额度不足` on every priced model |
 | Card required | **No** |
-| Captcha | **none** — Turnstile is disabled on register and login (`?turnstile=` accepts an empty value) |
+| Captcha | **Cloudflare Turnstile, on** — a real token, minted in an offscreen Chrome through the same exit (`src/solver.js`; `npm install` + a Chrome on the machine) |
 | E-mail verification | **not required** — the panel stores the address and never mails a code |
 | The unit that scales | **one account = one key** → `--count N` is really "N funded accounts" |
 
-`--aff` defaults to the fleet's own invite code; point it at yours and every account you mint credits you the panel's commission (10 % for this panel).
+`--code <code>` pins the invite code (your own account's code, which also credits you the panel's commission — 10 % here) and skips the seed account; leave it out and the tool registers one seed account first and harvests its code, so every account of the run is funded on a **live** code.
 
 > 💡 The free tier is set by EasyMax and can change. Check the live numbers at [easymax.ai](https://easymax.ai) — and let the tool's own gate decide:
 
@@ -92,7 +92,7 @@ The `deepseek-v4-pro` id is a reasoning model: it answers with `reasoning_conten
 node src/cli.js --count 10
 ```
 
-That is the whole tool: one EasyMax account per key (funded by the invite code), its API key minted and kept **only** after a live `chat-200`. The captcha step is automatic — EasyMax ships with Cloudflare Turnstile *disabled* (the panel accepts an empty `?turnstile=`), so `--auto` (on by default) needs no browser; `src/solver.js` is where that is expressed. A `proxies.txt` next to the repo is picked up automatically (one pinned exit per account); without it the run goes direct.
+That is the whole tool: one EasyMax account per key (funded by the invite code the panel hands back), its API key minted and kept **only** after a live `chat-200`. The captcha step is automatic too — the panel runs Cloudflare Turnstile, and `src/solver.js` (on by default behind `--auto`) mints a real token in an offscreen Chrome **through the same exit**, because the token is bound to the solving IP; that is what the one-time `npm install` is for. A `proxies.txt` next to the repo is picked up automatically (one pinned exit per account); without it the run goes direct.
 
 `--dry` prints the resolved plan — count, pool size, solver availability, models — and exits without touching a single file or making a request:
 
@@ -110,10 +110,13 @@ Prefer a menu to flags? `npm start` (or `node src/launcher.js`) → **1) Mint ke
 # clone or fork this repository, then:
 cd easymax-bulk-apikey
 
-# 1) your proxy list, one per line (http://…, socks5://… or socks4a://…) — optional
+# 1) dependencies for the captcha step (puppeteer-core — bring a Chrome on the machine)
+npm install
+
+# 2) your proxy list, one per line (http://…, socks5://… or socks4a://…) — optional
 printf 'http://127.0.0.1:8080\n' > proxies.txt   # optional — without it the tool runs direct
 
-# 2) go — one command
+# 3) go — one command
 node src/cli.js --count 50
 # or the menu:  node src/launcher.js        (interactive)
 ```
@@ -128,14 +131,15 @@ A key is appended to `keys.txt` **only** after a live chat completion proves it;
 
 | Check | Result |
 | --- | --- |
-| register `POST /api/user/register?turnstile=` | **200** `{"success":true}` — with `aff_code`, the account lands on `quota: 250000` |
+| register `POST /api/user/register?turnstile=` | **200** `{"success":true}` — with a live `aff_code`, the account lands on `quota: 250000` |
+| the register's Turnstile | a real token is required (`Turnstile 校验失败` without one) and is minted from the very exit that spends it |
 | login `POST /api/user/login?turnstile=` | **200** — New-API **v2** payload (`access_token` JWT + session) |
 | auth | `Authorization: Bearer <access_token>` + `New-Api-User: <uid>` on `/api/token/*` |
 | key | `POST /api/token/ {group}` → **200**, then `POST /api/token/<id>/key` → full key |
 | chat gate — run for **every** key before it is written | **200** with real content |
 | a key that fails its chat check | never written to `keys.txt` (the account stays reusable in `accounts.json`) |
 
-Minted with this tool during the build: **8 accounts / every key, all `quota 250000`, all chat-200** on `deepseek-v4.1-flash`, across two tunnel types (CONNECT + SOCKS5) and 4 exits.
+Minted with this tool during the build: **8 accounts / every key, all `quota 250000`, all chat-200** on `deepseek-v4.1-flash`, across two tunnel types (CONNECT + SOCKS5) and 4 exits. Re-measured 2026-10-24 through this repo's own CLI (`--count 1`, one WARP exit): the seed account's own code funded the minted account with `quota 250000` and its key answered chat-200 on two different prompts.
 
 > **Quality gates.** Every key here passed a live `chat-200` before it was written to `keys.txt`
 > (dead keys are never shipped). Router combos follow the same rule at the model level: an entry is
@@ -156,6 +160,8 @@ inbox (one address per account)                                  a fresh address
 
 | Step | Call | Notes |
 | --- | --- | --- |
+| captcha | `src/solver.js` — offscreen Chrome, pinned to the account's exit | Turnstile is on and binds its token to the IP that spends it |
+| invite code | one seed account → `GET /api/user/aff` | the panel's own answer is the code every account of the run registers with (`--code` pins one instead) |
 | mailbox | broker `POST /create` → emailnator → generated address | the panel only stores the address; the rail never blocks on mail |
 | register | `POST /api/user/register?turnstile= {username,password,email,aff_code}` | the invite code is what funds the account |
 | login | `POST /api/user/login?turnstile= {username,password}` | `access_token` back in the body |
@@ -175,13 +181,13 @@ node src/cli.js --screen          # test the proxy list against EasyMax
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--count` | 5 | accounts (= keys) to mint |
-| `--auto` | on | use the embedded captcha solver (`--no-auto` opts out; EasyMax has no live captcha) |
+| `--auto` | on | use the embedded captcha solver (`--no-auto` opts out; the captcha step is automatic — see `src/solver.js`) |
 | `--dry` | — | print the resolved plan and exit (no accounts, no files, no network) |
 | `--conc` | 1 | accounts in flight at once (capped at 16) |
 | `--gap` | 1200 | pause in ms between rounds inside a worker |
 | `--model` | `deepseek-v4.1-flash` | model the live gate uses |
 | `--group` | `deepseek` | token group the key is created in (`default` serves the gpt family) |
-| `--aff` | fleet invite code | invite code sent at sign-up — this is the quota source |
+| `--code <code>` | read from a live seed account | invite code sent at sign-up — this is the quota source |
 | `--pool <file>` | `proxies.txt` | exit list (env `EASYMAX_PROXIES`) — optional: without a pool the CLI connects directly |
 | `--broker <urls>` | `http://127.0.0.1:9700,http://127.0.0.1:9701` | inbox broker base URL(s) |
 | `--inbox <chain>` | `broker,emailnator,local` | mailbox rail order |
@@ -206,7 +212,7 @@ Every EasyMax request goes through the exit list when one is provided — **one 
 | `keys.txt` | one chat-200 key per line — git-ignored |
 | `keys-ungated.txt` | keys that failed the re-check — retry later |
 | `keys-dead.txt` | keys that minted but never passed the chat gate — retry material |
-| `src/solver.js` | the captcha module behind `--auto` (Turnstile is disabled on this panel) |
+| `src/solver.js` | the captcha module behind `--auto` — a real Turnstile token, minted in an offscreen Chrome through the account's exit |
 | `accounts.json` | username / password / e-mail / quota / key / gate result per account |
 | `proxies.txt` | your exits, one per line — git-ignored |
 | `proxies.live.txt` | survivors of `--screen` |

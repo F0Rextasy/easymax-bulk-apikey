@@ -6,18 +6,24 @@
  * keep only the keys that survived a live chat call.
  *
  * Flow, per account, every panel request through one pinned exit from your pool:
+ *   0. captcha    the panel runs Cloudflare Turnstile: `src/solver.js` mints a real
+ *                 token in an offscreen Chrome **through the same exit**, because the
+ *                 panel binds the token to the IP that spends it
  *   1. mailbox    broker `POST /create` (primary) → emailnator → generated address
- *   2. register   `POST /api/user/register?turnstile= {username,password,email,aff_code}`
- *                 the invite code is what funds the account: a plain sign-up gets
- *                 quota 0 and its key answers 403, `aff_code` → 250000 quota
- *                 (measured 2026-10-19 on this panel)
- *   3. login      `POST /api/user/login?turnstile=`   → access_token
- *   4. account    `GET  /api/user/self`               → id + quota
- *   5. key        `POST /api/token/ {group}` then `POST /api/token/<id>/key`
+ *   2. invite     the code that funds the accounts is read back from the panel, never
+ *                 baked into this repo: one seed account is registered and its own
+ *                 code (`GET /api/user/aff`) funds every account of the run with
+ *                 250000 quota (measured 2026-10-24). A stale code pays `quota: 0`
+ *                 and its key answers `403 用户额度不足`; `--code <code>` pins one
+ *                 and skips the seed account
+ *   3. register   `POST /api/user/register?turnstile= {username,password,email,aff_code}`
+ *   4. login      `POST /api/user/login?turnstile=`   → access_token
+ *   5. account    `GET  /api/user/self`               → id + quota
+ *   6. key        `POST /api/token/ {group}` then `POST /api/token/<id>/key`
  *                 (every later call carries `New-Api-User: <id>`)
- *   6. gate       `POST /v1/chat/completions`         → 200 with real content = keep
+ *   7. gate       `POST /v1/chat/completions`         → 200 with real content = keep
  *
- * A key is appended to `keys.txt` only *after* step 6 answers 200 — a key that
+ * A key is appended to `keys.txt` only *after* step 7 answers 200 — a key that
  * never passes is recorded in `accounts.json` and retried on the next run.
  *
  * Options:
@@ -26,7 +32,8 @@
  *   --gap MS         pause between rounds inside a worker          [1200]
  *   --model <id>     model used for the live gate       [deepseek-v4.1-flash]
  *   --group <name>   token group the key is created in            [deepseek]
- *   --aff <code>     invite code used at sign-up (this is the quota source)
+ *   --code <code>    invite code used at sign-up; omit it and the tool reads a live
+ *                    account's own code from `GET /api/user/aff`
  *   --pool <file>    proxy list, one exit per line (env EASYMAX_PROXIES) [optional]
  *   --broker <urls>  inbox broker base URL(s), comma separated
  *                                 [http://127.0.0.1:9700,http://127.0.0.1:9701]
@@ -38,9 +45,10 @@
  *   --screen         only test the proxy list against EasyMax
  *   --help
  *
- * Zero dependencies. Node.js >= 18. Your proxy list is OPTIONAL: pass --pool
- * (or the EASYMAX_PROXIES env) and every request goes through an exit from it;
- * without a pool the tool connects directly.
+ * `puppeteer-core` (one `npm install`) and a Chrome are required for the captcha
+ * step. The proxy list is OPTIONAL: pass --pool (or the EASYMAX_PROXIES env) and
+ * every request — captcha included — goes through one pinned exit; without a pool
+ * the tool connects directly.
  */
 
 const fs = require('fs');
@@ -82,12 +90,13 @@ if (has('help') || has('h')) {
   node src/cli.js --count N          one command: mint N accounts + keys (captcha handled automatically)
 
   --count N      accounts to mint                                  [5]
-  --auto         use the embedded captcha solver (DEFAULT — nothing to solve, see src/solver.js)
+  --code <code>  invite code for sign-up (default: read a live code from the panel)
   --dry          print the resolved plan and exit (no accounts, no files, no network)
   --conc N       accounts in flight (max 16)                       [1]
   --model <id>   model used for the live gate        [deepseek-v4.1-flash]
   --group <name> token group the key is created in               [deepseek]
-  --aff <code>   invite code used at sign-up (grants the 250k quota)
+  --auto         use the embedded captcha solver (DEFAULT — Turnstile is solved in an
+                 offscreen Chrome, through the same exit; needs npm install once)
   --pool <file>  proxy list, one exit per line (env EASYMAX_PROXIES) [optional]
   --broker <u>   inbox broker base URL(s), comma separated
   --inbox <c>    mailbox rail order                  [broker,emailnator,local]
@@ -95,7 +104,8 @@ if (has('help') || has('h')) {
   --screen       test your proxy list against EasyMax
 
 Requests go through your proxy list when one is provided (--pool / env).
-Without a pool the tool connects directly.`);
+Without a pool the tool connects directly. The captcha step needs a Chrome on the
+machine plus puppeteer-core (npm install in the repo root).`);
   process.exit(0);
 }
 
@@ -106,7 +116,7 @@ const EXITS = Math.max(1, parseInt(arg('exits', '6'), 10) || 6);
 const TIMEOUT_MS = Math.max(5000, parseInt(arg('timeout', '60000'), 10) || 60000);
 const MODEL = arg('model', 'deepseek-v4.1-flash');
 const GROUP = arg('group', 'deepseek');
-const AFF = arg('aff', 'LQ5onYuWhA3V');
+const CODE = arg('code', arg('aff', ''));  // '' = harvest a live code (see inviteCode)
 const MAIL_DOMAIN = arg('mail-domain', 'qq.com');
 const BROKERS = arg('broker', 'http://127.0.0.1:9700,http://127.0.0.1:9701')
   .split(',')
@@ -169,10 +179,10 @@ if (has('dry')) {
   console.log(`dry run — nothing minted, no files touched, no network calls
   count    ${COUNT}
   pool     ${exits.filter(Boolean).length ? `${exits.filter(Boolean).length} exit(s)` : 'DIRECT (no proxy)'}
-  solver   embedded (src/solver.js) — no browser needed (Turnstile is disabled on this panel)
+  solver   embedded (src/solver.js) — offscreen Chrome, puppeteer-core (npm install)
   auto     ${AUTO ? 'on (default)' : 'off'}
   model    ${MODEL}
-  group    ${GROUP}
+  group    ${GROUP}${CODE ? ` · code ${CODE}` : ' · code read from a live seed account at run time'}
   inbox    ${INBOX.join('→')}`);
   process.exit(0);
 }
@@ -619,16 +629,19 @@ function recordAccount(rec) {
   return writeChain;
 }
 
-async function signUp(exits, exitLine) {
+/** Register + log one account in. `code` is the aff_code sent at sign-up ('' = none). */
+async function createAccount(exits, exitLine, code) {
   const username = randUser();
   const password = randPass();
   const box = await claimMailbox(exits, exitLine);
-  // the panel's Turnstile is disabled (accepts an empty token); the solver is the
-  // single place this is expressed — `--auto` needs no browser here.
-  const { token: ts } = await solveCaptcha({ type: 'turnstile', url: BASE, proxy: exitLine || null });
+  // The panel runs Cloudflare Turnstile, and the token is bound to the exit that
+  // solved it — so the solver is handed the very exit the HTTP calls leave through.
+  // Chrome knows `socks5://` only: the curl-style `socks5h://` is rewritten for it.
+  const solverExit = exitLine ? String(exitLine).replace(/^socks5h:\/\//, 'socks5://') : null;
+  const { token: ts } = await solveCaptcha({ type: 'turnstile', url: `${BASE}/register`, proxy: solverExit });
   const reg = await exitJson(exits, exitLine, `${BASE}/api/user/register?turnstile=${encodeURIComponent(ts)}`, {
     method: 'POST',
-    body: { username, password, email: box.address, aff_code: AFF },
+    body: { username, password, email: box.address, aff_code: code },
   });
   if (!(reg.json && reg.json.success)) {
     return { username, password, box, error: `register HTTP ${reg.status}: ${String(reg.text).slice(0, 160)}` };
@@ -643,6 +656,16 @@ async function signUp(exits, exitLine) {
   const data = (me.json && me.json.data) || {};
   const auth = { authorization: `Bearer ${token}` };
   if (data.id) auth['New-Api-User'] = String(data.id);
+  // The account's OWN invite code (`data` is the bare code, not an object) — this is
+  // what funds the next account. Anything baked into the repo goes stale silently.
+  const aff = await exitJson(exits, exitLine, `${BASE}/api/user/aff`, { headers: auth });
+  const own = typeof (aff.json && aff.json.data) === 'string' ? aff.json.data : null;
+  return { username, password, box, quota: data.quota, uid: data.id, own, token, auth };
+}
+
+/** The account's API key in `GROUP`; the plaintext key comes back exactly once. */
+async function mintKey(exits, exitLine, sess) {
+  const { auth } = sess;
   const created = await exitJson(exits, exitLine, `${BASE}/api/token/`, {
     method: 'POST',
     headers: auth,
@@ -685,7 +708,58 @@ async function signUp(exits, exitLine) {
       }
     }
   }
-  return { username, password, box, quota: data.quota, uid: data.id, key };
+  return key;
+}
+
+async function signUp(exits, exitLine, code) {
+  const sess = await createAccount(exits, exitLine, code);
+  if (sess.error) return sess;
+  return { ...sess, key: await mintKey(exits, exitLine, sess) };
+}
+
+/**
+ * The invite code that funds every account of the run. `--code` pins one; otherwise
+ * one throwaway account is registered and the panel itself is asked for its code
+ * (`GET /api/user/aff`) — a code shipped inside the repo goes stale without warning
+ * (the fleet code that used to live here now pays `quota: 0`, its owner is banned,
+ * while a live account's own code pays 250000 — measured 2026-10-24).
+ */
+async function inviteCode(exits, startExit) {
+  if (CODE) return CODE;
+  let last = 'no attempt';
+  for (let attempt = 0; attempt < EXITS; attempt++) {
+    const exitLine = attempt === 0 ? startExit : exits[(exits.indexOf(startExit) + attempt * 3 + 1) % exits.length];
+    try {
+      const seed = await createAccount(exits, exitLine, '');
+      if (seed.error) {
+        last = seed.error;
+        say(`  seed ${attempt + 1}/${EXITS} via ${maskExit(exitLine)}: ${seed.error}`);
+      } else if (!seed.own) {
+        last = 'the panel returned no invite code (/api/user/aff)';
+        say(`  seed ${attempt + 1}/${EXITS}: ${last}`);
+      } else {
+        await recordAccount({
+          seed: true,
+          username: seed.username,
+          password: seed.password,
+          email: seed.box.address,
+          uid: seed.uid,
+          quota: seed.quota,
+          code: seed.own,
+          verdict: 'seed',
+          exit: maskExit(exitLine),
+          at: new Date().toISOString(),
+        });
+        say(`  invite code ${seed.own} from seed account ${seed.username} (quota ${seed.quota})`);
+        return seed.own;
+      }
+    } catch (e) {
+      last = e.message;
+      say(`  seed ${attempt + 1}/${EXITS} via ${maskExit(exitLine)}: ${e.message}`);
+    }
+    await sleep(1500 * (attempt + 1));
+  }
+  throw new Error(`no live invite code after ${EXITS} attempt(s): ${last} — pass --code <code>`);
 }
 
 /** The gate: a key is live only when the model answers 200 with real output. */
@@ -717,13 +791,13 @@ async function chatGate(exits, exitLine, key, model = MODEL) {
 
 /** Accounts whose every candidate died at the transport layer (not a panel verdict). */
 let deadRoutes = 0;
-async function mintOne(exits, startExit, index) {
+async function mintOne(exits, startExit, index, code) {
   let transportDead = 0;
   for (let attempt = 0; attempt < EXITS; attempt++) {
     const exitLine = attempt === 0 ? startExit : exits[(exits.indexOf(startExit) + attempt * 3 + 1) % exits.length];
     let acct = null;
     try {
-      acct = await signUp(exits, exitLine);
+      acct = await signUp(exits, exitLine, code);
       if (acct.error) {
         noteReason(String(acct.error).split(/\s+/)[0].slice(0, 24) || 'signup');
         say(`  ✗ #${index + 1} ${acct.error}`);
@@ -848,6 +922,7 @@ async function mint(exits) {
     `minting ${COUNT} account(s), conc ${CONC}, model ${MODEL}, group ${GROUP}, ` +
       `${exits.filter(Boolean).length ? `${exits.filter(Boolean).length} exit(s)` : 'direct (no proxy)'}, inbox ${INBOX.join('→')}`
   );
+  const code = await inviteCode(exits, exits[0]);
   let cursor = 0;
   let ok = 0;
   let failed = 0;
@@ -855,7 +930,7 @@ async function mint(exits) {
     while (true) {
       const i = cursor++;
       if (i >= COUNT) return;
-      const rec = await mintOne(exits, exits[i % exits.length], i);
+      const rec = await mintOne(exits, exits[i % exits.length], i, code);
       if (rec && rec.verdict === 'LIVE') ok++;
       else failed++;
       if (GAP_MS) await sleep(GAP_MS);
